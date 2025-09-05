@@ -7,6 +7,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "build": "tsc",
+    "build:web": "cd web && npm ci && npm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint server.js --fix",
     "format": "prettier --write server.js"

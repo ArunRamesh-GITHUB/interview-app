@@ -410,23 +410,12 @@ app.use(
 const strictLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 })
 const lightLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 })
 
-// Serve built React app in production, fallback to public
-if (process.env.NODE_ENV === 'production') {
-  const reactDistPath = path.join(__dirname, 'web/dist')
-  console.log('Checking for React build at:', reactDistPath)
-  console.log('React build exists:', fs.existsSync(reactDistPath))
-  
-  if (fs.existsSync(reactDistPath)) {
-    console.log('✅ Serving React app from web/dist')
-    app.use(express.static(reactDistPath))
-  } else {
-    console.log('⚠️ React build not found, serving from public directory')
-    app.use(express.static(path.join(__dirname, 'public')))
-  }
-} else {
-  // Serve static files from public in development
-  app.use(express.static(path.join(__dirname, 'public')))
-}
+// --- Serve SPA build (Vite) from ./web/dist --- //
+const SPA_DIR = path.join(__dirname, 'web', 'dist')
+app.use(express.static(SPA_DIR))
+
+// Serve fallback static files from public directory
+app.use(express.static(path.join(__dirname, 'public')))
 
 // ---------- Helpers ----------
 function authRequired(req, res, next) { if (req.session?.user?.id) {return next();} return res.status(401).json({ error: 'Not authenticated' }) }
@@ -1307,19 +1296,12 @@ app.post('/api/realtime/function-call', handleRealtimeFunctionCall)
 // ---------- Health ----------
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
-// Catch-all handler for React Router (must be last)
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    const reactIndex = path.join(__dirname, 'web/dist/index.html')
-    const fallbackIndex = path.join(__dirname, 'public/index.html')
-    
-    if (fs.existsSync(reactIndex)) {
-      res.sendFile(reactIndex)
-    } else {
-      res.sendFile(fallbackIndex)
-    }
-  })
-}
+// Fallback to index.html for client-side routes
+app.get('*', (req, res, next) => {
+  // Only fall back if this isn't an API route
+  if (req.path.startsWith('/api') || req.path.startsWith('/auth')) return next()
+  res.sendFile(path.join(SPA_DIR, 'index.html'))
+})
 
 // ---------- Start ----------
 console.log('Realtime model (locked):', REALTIME_MODEL)
