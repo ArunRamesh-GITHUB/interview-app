@@ -1,0 +1,266 @@
+{
+  "meta": {
+    "profile_id": "playful-edu-mobile-01",
+    "version": "1.0",
+    "description": "Design system profile inferred from three playful, rounded mobile education UI screens. No literal UI copy or brand assets included.",
+    "intended_platforms": ["iOS", "Android"],
+    "base_viewport": { "width": 390, "height": 844, "unit": "pt" }
+  },
+  "style": {
+    "brand_adjectives": ["playful", "rounded", "friendly", "pastel", "clean", "high-contrast text"],
+    "palette": {
+      "light": {
+        "primary": "#F6A15B",
+        "primary_on": "#1A130B",
+        "secondary": "#8B7AF5",
+        "secondary_on": "#120F26",
+        "accent": "#FFD166",
+        "accent_alt": "#A7E8DC",
+        "surface": "#FFF6EA",
+        "surface_alt": "#FCFCFD",
+        "card": "#FFFFFF",
+        "card_tinted_orange": "#FFE7CC",
+        "card_tinted_lavender": "#EDE8FF",
+        "text_primary": "#111418",
+        "text_secondary": "#5B6472",
+        "text_tertiary": "#8B94A3",
+        "border": "#E6E8EE",
+        "divider": "#EEF0F4",
+        "success": "#34D399",
+        "warning": "#FBBF24",
+        "error": "#EF4444",
+        "chart_1": "#F59E0B",
+        "chart_2": "#8B5CF6",
+        "chart_3": "#F97316",
+        "chart_4": "#22D3EE",
+        "overlay": "rgba(17,20,24,0.6)"
+      },
+      "dark": {
+        "primary": "#FDB074",
+        "primary_on": "#0D0B08",
+        "secondary": "#A597FF",
+        "accent": "#FFDD88",
+        "surface": "#121317",
+        "surface_alt": "#171A1F",
+        "card": "#1C1F26",
+        "text_primary": "#F5F7FA",
+        "text_secondary": "#C9D1DB",
+        "border": "#2A2F37",
+        "divider": "#242932",
+        "chart_1": "#FDBA74",
+        "chart_2": "#A78BFA",
+        "chart_3": "#FB923C",
+        "chart_4": "#67E8F9",
+        "overlay": "rgba(0,0,0,0.6)"
+      }
+    },
+    "gradients": {
+      "hero_orange": { "type": "linear", "angle": 180, "stops": [["#FFD6A6", 0], ["#F6A15B", 100]] },
+      "hero_lavender": { "type": "linear", "angle": 180, "stops": [["#D9D2FF", 0], ["#8B7AF5", 100]] }
+    },
+    "typography": {
+      "family_primary": "Rounded Sans (e.g., SF Pro Rounded, Inter Rounded, or similar)",
+      "family_numeric": "Tabular Lining",
+      "scale": {
+        "display": { "size": 32, "line": 38, "weight": 700, "tracking": -0.5 },
+        "headline": { "size": 24, "line": 30, "weight": 700, "tracking": -0.25 },
+        "title": { "size": 18, "line": 24, "weight": 700 },
+        "subtitle": { "size": 14, "line": 20, "weight": 600 },
+        "body": { "size": 14, "line": 20, "weight": 500 },
+        "label": { "size": 12, "line": 16, "weight": 600 },
+        "caption": { "size": 11, "line": 14, "weight": 500 }
+      },
+      "numeral_style": "tabular",
+      "emphasis_rules": {
+        "stat_numbers_weight": 800,
+        "small_uppercase_labels": false
+      }
+    },
+    "shape": {
+      "radius": { "xs": 8, "sm": 12, "md": 16, "lg": 20, "xl": 28, "xxl": 36, "pill": 999 },
+      "stroke": { "thin": 1, "regular": 1.5, "thick": 2 }
+    },
+    "spacing": { "unit": 4, "scale": [4, 8, 12, 16, 20, 24, 28, 32, 40, 48] },
+    "elevation": {
+      "level_0": "none",
+      "level_1": "0 2px 6px rgba(17,20,24,0.05), 0 1px 2px rgba(17,20,24,0.04)",
+      "level_2": "0 8px 20px rgba(17,20,24,0.08)",
+      "level_3": "0 14px 32px rgba(17,20,24,0.12)"
+    },
+    "iconography": {
+      "style": "rounded, simple geometric, minimal detail",
+      "sizes": { "xs": 16, "sm": 20, "md": 24, "lg": 28, "xl": 32 },
+      "stroke_weight": 1.75,
+      "use_badge_dot": true
+    },
+    "grid": {
+      "columns": 12,
+      "margin": 16,
+      "gutter": 12,
+      "card_gap": 12,
+      "list_gap": 10
+    }
+  },
+  "components": {
+    "app_header": {
+      "anatomy": ["avatar", "greeting_block", "progress_chip", "actions"],
+      "layout": { "padding": [16, 16], "gap": 12, "alignment": "center-between" },
+      "variants": {
+        "with_progress": { "chip_style": "pill/ghost", "icon": "progress" },
+        "compact": { "height": 56 }
+      }
+    },
+    "hero_card": {
+      "purpose": "Primary feature or announcement at top of feed",
+      "anatomy": ["title_area", "illustration_slot", "cta_fab"],
+      "style": { "radius": "xl", "background": ["gradient:hero_lavender", "gradient:hero_orange"], "shadow": "level_2" },
+      "layout": { "padding": 20, "illustration_align": "right-bottom", "cta_fab_position": "bottom-left" },
+      "cta_fab": { "size": 52, "icon_size": 22, "elevation": "level_3" }
+    },
+    "stat_pill": {
+      "purpose": "Small numeric stat with label",
+      "anatomy": ["icon_optional", "number", "label"],
+      "style": { "radius": "lg", "background": "card", "border": "divider" },
+      "sizes": { "md": { "height": 64, "padding": [12, 14] }, "sm": { "height": 48, "padding": [10, 12] } },
+      "number_style": "title/800 tabular"
+    },
+    "progress_bar": {
+      "purpose": "Linear progress for monthly or course performance",
+      "shape": { "height": 12, "radius": 8 },
+      "track_color": "divider",
+      "fill_color": "primary",
+      "labels": { "placement": "outside_end", "style": "caption/600" }
+    },
+    "segmented_control": {
+      "purpose": "Toggle range (daily/weekly/monthly or subjects)",
+      "style": { "radius": "pill", "track": "surface_alt", "thumb": "card", "shadow": "level_1" },
+      "sizes": { "md": { "height": 36, "padding": 4 } }
+    },
+    "bar_chart": {
+      "purpose": "Rounded column chart for activity by day",
+      "style": {
+        "bar_radius": 12,
+        "bar_width": "auto",
+        "palette": ["chart_1", "chart_3", "chart_2", "chart_4"],
+        "gridline_color": "border",
+        "value_label_style": "label/700"
+      },
+      "axes": { "x": { "show_labels": true, "uppercase": false }, "y": { "show_labels": false } },
+      "legend": { "visible": false },
+      "animations": { "grow_up_duration_ms": 450, "easing": "cubic-bezier(0.2,0.8,0.2,1)" }
+    },
+    "course_card": {
+      "purpose": "List item for a course/lesson group",
+      "anatomy": ["badge_row", "title", "meta_row", "action_button", "bg_illustration_slot"],
+      "style": { "radius": "xl", "background": "card", "tint_options": ["card_tinted_orange", "card_tinted_lavender"], "shadow": "level_1" },
+      "action_button": { "shape": "circular", "size": 44, "icon": "arrow-right" },
+      "meta_row": { "avatars_max": 4, "delta_chip_style": "success/ghost" }
+    },
+    "chip": {
+      "purpose": "Subject/category selector",
+      "style": { "radius": "pill", "padding_x": 12, "height": 32, "selected_bg": "secondary", "selected_text": "card" },
+      "with_icon": true
+    },
+    "avatar_group": {
+      "sizes": { "sm": 24, "md": 28 },
+      "overlap": -8,
+      "ring": { "width": 2, "color": "card" }
+    },
+    "rating_row": {
+      "purpose": "Horizontal list with small avatars and a label/badge",
+      "style": { "radius": "lg", "background": "card", "shadow": "level_0", "border": "divider" }
+    },
+    "bottom_nav": {
+      "items_max": 5,
+      "height": 72,
+      "style": { "background": "card", "shadow": "level_2", "radius": "xl" },
+      "item": {
+        "icon_only_default": true,
+        "active_indicator": { "type": "pill", "height": 32, "padding_x": 14 },
+        "badge_dot": { "size": 8, "offset": [10, -2] }
+      }
+    },
+    "floating_action": {
+      "size": 56,
+      "position": "bottom-right",
+      "offset": [16, 90],
+      "icon": "plus",
+      "elevation": "level_3"
+    }
+  },
+  "layouts": {
+    "dashboard": {
+      "header": "app_header",
+      "sections": [
+        { "type": "hero_card", "height": 200 },
+        { "type": "stat_grid", "grid": { "columns": 2, "gap": 12 }, "item_component": "stat_pill" },
+        { "type": "progress_group", "items": [
+          { "component": "progress_bar", "title_style": "subtitle/700" }
+        ]}
+      ],
+      "footer": "bottom_nav"
+    },
+    "courses": {
+      "header": { "title_style": "headline", "bg": "hero_orange" },
+      "filters": { "component": "chip", "scroll": "horizontal", "padding_y": 8 },
+      "list": { "item": "course_card", "gap": 12 },
+      "footer": "bottom_nav"
+    },
+    "progress": {
+      "header": "app_header",
+      "toggle": { "component": "segmented_control", "options": ["daily", "weekly", "monthly"] },
+      "chart": { "component": "bar_chart", "height": 220 },
+      "below_chart": [
+        { "component": "rating_row" }
+      ],
+      "footer": "bottom_nav"
+    }
+  },
+  "motion": {
+    "durations_ms": { "instant": 80, "fast": 160, "standard": 220, "slow": 360 },
+    "easing": {
+      "in_out": "cubic-bezier(0.2,0.8,0.2,1)",
+      "decelerate": "cubic-bezier(0.05,0.7,0.1,1)",
+      "accelerate": "cubic-bezier(0.3,0,0.7,0.1)"
+    },
+    "micro_interactions": {
+      "button_press": { "scale": 0.98, "duration_ms": 90 },
+      "chip_select": { "thumb_slide_ms": 180 },
+      "nav_switch": { "pill_slide_ms": 220, "shadow": "level_2" },
+      "card_raise": { "elevation_to": "level_2", "duration_ms": 160 }
+    }
+  },
+  "illustration_guidelines": {
+    "style": "flat-vector with soft shading and rounded geometry",
+    "palette_alignment": ["secondary", "accent", "primary"],
+    "density": "sparse; keep ample negative space",
+    "placement": "anchored to card corners without overlapping key text"
+  },
+  "a11y": {
+    "min_contrast_ratio": 4.5,
+    "touch_target_min": 44,
+    "hit_slop": 6,
+    "focus_style": { "outline": { "width": 2, "color": "#4F46E5" }, "radius": 12 },
+    "motion_reduce": { "prefer_reduced_motion": true, "skip_enter_animations": true }
+  },
+  "data_viz_rules": {
+    "bar": { "rounded_ends": true, "gap": 10, "max_bars": 7, "show_values": true, "value_bubble_radius": 10 },
+    "progress": { "snap_to_5_percent": true, "label_placement": "right" },
+    "color_mapping": { "primary_metric": "chart_1", "secondary_metric": "chart_2" }
+  },
+  "content_guidelines": {
+    "titles": { "length_max_chars": 36 },
+    "labels": { "case": "sentence", "tone": "encouraging" },
+    "numbers": { "format": "compact", "use_tabular": true }
+  },
+  "theming_hooks": {
+    "tokens": {
+      "btn.primary.bg": "{style.palette.light.primary}",
+      "btn.primary.text": "{style.palette.light.card}",
+      "chip.selected.bg": "{style.palette.light.secondary}",
+      "chip.selected.text": "{style.palette.light.card}",
+      "nav.active.indicator.bg": "{style.palette.light.surface_alt}",
+      "card.hero.gradient": "{style.gradients.hero_lavender}"
+    }
+  }
+}
