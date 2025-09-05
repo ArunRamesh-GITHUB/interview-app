@@ -1,13 +1,17 @@
 {
   "name": "nailit-supabase-simple-auth",
   "version": "2.1.0",
+  "private": true,
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "main": "server.js",
   "scripts": {
+    "build:web": "cd web && npm ci && npm run build",
     "start": "node server.js",
     "dev": "node server.js",
     "build": "tsc",
-    "build:web": "cd web && npm ci && npm run build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint server.js --fix",
     "format": "prettier --write server.js"
@@ -15,6 +19,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0",
     "cookie-session": "^2.0.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.1",

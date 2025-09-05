@@ -2,7 +2,7 @@ services:
   - type: web
     name: interview-app
     env: node
-    buildCommand: npm run build:web
+    buildCommand: npm ci && npm run build:web
     startCommand: npm start
     envVars:
       - key: NODE_ENV
