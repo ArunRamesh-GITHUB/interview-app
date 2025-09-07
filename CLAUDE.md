@@ -4,11 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-AI Interview App is a full-stack interview training application with multiple interfaces:
+**NailIT Interview Prep** is a full-stack AI-powered interview training application with multiple interfaces:
 - **Backend**: Express.js server with OpenAI integration, Supabase auth, and TTS/STT capabilities
 - **Web Frontend**: React + Vite + Tailwind CSS (shadcn-style) single-page application
-- **Mobile App**: Expo React Native application
+- **Mobile App**: Expo React Native WebView wrapper application
 - **Legacy Interface**: Static HTML/JS interface in `public/`
+
+## Application Purpose & Features
+
+**Core Functionality:**
+- AI-powered interview practice with realistic voice conversations
+- Multiple interview modes: Live, Drill Questions, Realtime AI, and CV Upload
+- Persona-based interview styles: Medical, Oxbridge, Apprenticeship
+- Real-time transcription and scoring with detailed feedback
+- Question bank management with customizable questions
+- Progress tracking and performance analytics
+
+**Key Features:**
+- Voice recording and playback with browser-based speech recognition
+- OpenAI integration for transcription (Whisper), scoring (GPT-4o-mini), and TTS
+- Real-time AI conversations using OpenAI Realtime API
+- Contextual follow-up question generation
+- Secure user authentication and data storage
+- Export functionality for interview data
 
 ## Commands
 
@@ -157,3 +175,74 @@ Mobile app is a separate Expo project in `mobile-shell/` with its own dependenci
 
 ### Legacy Support
 The `public/` directory contains a self-contained HTML/JS interface that works without the React build process.
+
+## Data Collection & Privacy
+
+**Data Stored:**
+- User accounts: email, username (Supabase Auth)
+- Interview responses: questions, text transcripts, scores, performance metrics
+- Session management: HTTP-only cookies for authentication
+- Audio processing: temporary voice recordings (immediately deleted after transcription)
+
+**Third-Party Integrations:**
+- **OpenAI**: Whisper (transcription), GPT-4o-mini (scoring), TTS (text-to-speech), Realtime API
+- **Supabase**: Authentication, database storage with Row Level Security
+- **Render**: Application hosting
+
+**Privacy Features:**
+- Row Level Security ensures users only access their own data
+- Audio recordings are processed temporarily and never stored
+- Data export functionality available
+- Account deletion support
+- No tracking or analytics beyond basic usage patterns
+- GDPR and CCPA compliant
+
+## Important Context for AI Assistants
+
+**Business Context:**
+- This is an interview preparation app focusing on medical school, Oxbridge, and apprenticeship interviews
+- Users practice with AI to improve their interview skills
+- The app provides detailed feedback and scoring to help users improve
+- Mobile app is a WebView wrapper that loads the web application
+
+**Technical Architecture:**
+- Monolithic Node.js backend with separate web frontend
+- Mobile app is a simple WebView wrapper (not native)
+- Real-time features using WebSockets for OpenAI Realtime API
+- Caching strategies for TTS and scoring to improve performance
+- Rate limiting and security measures throughout
+
+**Development Workflow:**
+- Web app runs on Vite dev server (port 5173) with proxy to backend (port 3000)
+- Mobile development uses Expo with WebView pointing to production URL
+- Database migrations handled via Supabase SQL editor
+- Environment variables required for OpenAI, Supabase, and session management
+
+**Key Implementation Details:**
+- Audio processing is done client-side with MediaRecorder API
+- OpenAI Whisper used for speech-to-text conversion
+- GPT-4o-mini provides interview scoring with structured JSON responses
+- Contextual follow-up questions generated based on user responses
+- Progressive web app features for mobile compatibility
+
+**Security Considerations:**
+- All user data protected by Row Level Security policies
+- Session management uses secure HTTP-only cookies
+- Rate limiting prevents abuse
+- Input validation and sanitization throughout
+- CSRF protection enabled
+- Environment variables for all sensitive configuration
+
+**Performance Optimizations:**
+- TTS response caching to reduce API calls
+- Scoring cache for identical responses
+- Background processing for detailed scoring
+- Cleanup jobs for memory management
+- Connection pooling and query optimization
+
+**Future AI Assistant Considerations:**
+- When adding features, maintain the existing security model
+- Follow the established patterns for OpenAI API integration
+- Ensure new features respect the privacy policy commitments
+- Consider rate limiting for new API endpoints
+- Maintain compatibility between web and mobile interfaces

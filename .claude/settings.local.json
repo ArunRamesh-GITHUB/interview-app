@@ -87,7 +87,9 @@
       "Read(/C:\\Users\\Arunr\\Documents\\app\\mvp9.1/**)",
       "Read(/C:\\Users\\Arunr\\Documents\\app\\mvp9.1\\web\\src\\pages/**)",
       "Bash(node:*)",
-      "Read(/C:\\Users\\Arunr\\Documents\\app\\mvp9.1\\web/**)"
+      "Read(/C:\\Users\\Arunr\\Documents\\app\\mvp9.1\\web/**)",
+      "Bash(dir \"C:\\Users\\Arunr\\Documents\\app\\mvp9.1\\mobile-shell\\app\")",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []
