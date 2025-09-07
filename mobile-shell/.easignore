@@ -1,0 +1,17 @@
+﻿# ---- Ignore Windows temp/junk ----
+AppData/
+appdata/
+**/AppData/**
+**/appdata/**
+**/Local/**
+**/Temp/**
+*.tmp
+*.temp
+*.log
+
+# Typical Expo/Node ignores for EAS packaging
+node_modules/
+dist/
+build/
+.expo/
+.expo-shared/

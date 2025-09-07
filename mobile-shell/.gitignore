@@ -1,0 +1,17 @@
+﻿# Windows temp/junk
+AppData/
+appdata/
+**/AppData/**
+**/appdata/**
+**/Local/**
+**/Temp/**
+*.tmp
+*.temp
+*.log
+
+# Node/Expo
+node_modules/
+dist/
+build/
+.expo/
+.expo-shared/

@@ -89,7 +89,8 @@
       "Bash(node:*)",
       "Read(/C:\\Users\\Arunr\\Documents\\app\\mvp9.1\\web/**)",
       "Bash(dir \"C:\\Users\\Arunr\\Documents\\app\\mvp9.1\\mobile-shell\\app\")",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git submodule:*)"
     ],
     "deny": [],
     "ask": []
