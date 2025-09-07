@@ -15,9 +15,9 @@
 
     "android": {
       "package": "com.arun.mobileshell",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
-        "INTERNET", 
+        "INTERNET",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS"
       ],
@@ -28,9 +28,9 @@
 
     "ios": {
       "bundleIdentifier": "com.arun.mobileshell",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "This app uses the microphone to record audio for interview practice sessions."
+        "NSMicrophoneUsageDescription": "We use the microphone to record your interview answers."
       }
     },
 

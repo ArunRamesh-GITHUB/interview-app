@@ -8,6 +8,7 @@ import { prepareOverall, pollOverall } from '../lib/overall'
 import { useAuth } from '../lib/auth'
 import { QuestionBankManager, PersonaKey, OxbridgeSubject } from '../lib/questionBank'
 import { QuestionBankManagerComponent } from '../components/ui/question-bank-manager'
+import { getMicStream, pickRecorderMime, pickFileExt } from '../lib/mic'
 
 const OXBRIDGE_SUBJECTS: OxbridgeSubject[] = [
   'Engineering','Mathematics','Computer Science','Natural Sciences (Physics)',
@@ -303,9 +304,11 @@ export default function LiveInterview(){
 
   async function startRecording(){
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mime = 'audio/webm;codecs=opus'
-      const rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 64000 })
+      const stream = await getMicStream()
+      const mime = pickRecorderMime()
+      const rec = mime
+        ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 64000 })
+        : new MediaRecorder(stream)
       recRef.current = rec; streamRef.current = stream; chunksRef.current = []
       rec.ondataavailable = e => { if (e.data && e.data.size) chunksRef.current.push(e.data) }
       rec.onstop = () => handleStop(mime)
@@ -465,14 +468,15 @@ export default function LiveInterview(){
     (async () => {
       try {
         const stream = streamRef.current; if (stream) { try { stream.getTracks().forEach(t => t.stop()) } catch {} }
-        const blob = new Blob(chunksRef.current, { type: mime })
+        const blob = new Blob(chunksRef.current, { type: mime || 'application/octet-stream' })
+        const ext = pickFileExt(mime)
         const audioURL = URL.createObjectURL(blob)
         const q = currentQuestion()
         setStatus('transcribing')
         setScoringStatus('processing')
 
         const form = new FormData()
-        form.append('audio', blob, 'answer.webm')
+        form.append('audio', blob, `answer.${ext}`)
         form.append('question', q)
         form.append('mode', 'live')
         form.append('persona', persona)

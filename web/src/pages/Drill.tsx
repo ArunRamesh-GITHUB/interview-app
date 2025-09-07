@@ -7,6 +7,7 @@ import { Spinner } from '../components/ui/spinner'
 import { api, Scoring } from '../lib/utils'
 import { CoursesLayout } from '../layouts'
 import { Home as HomeIcon, Mic, Archive, BookOpen, CreditCard, Shuffle, Volume2, Play, Square } from 'lucide-react'
+import { getMicStream, pickRecorderMime, pickFileExt } from '../lib/mic'
 
 const DRILL_BANK = [
   'Tell me about yourself.',
@@ -68,16 +69,16 @@ export default function Drill(){
     setModelAnswer('')
     setModelScore(null)
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mime = 'audio/webm'
-      const rec = new MediaRecorder(stream, { mimeType: mime })
+      const stream = await getMicStream()
+      const mime = pickRecorderMime()
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
       recRef.current = rec
       streamRef.current = stream
       chunksRef.current = []
       rec.ondataavailable = e => { if (e.data && e.data.size) chunksRef.current.push(e.data) }
       rec.onstop = async () => {
         try { stream.getTracks().forEach(t => t.stop()) } catch {}
-        const blob = new Blob(chunksRef.current, { type: mime })
+        const blob = new Blob(chunksRef.current, { type: mime || 'application/octet-stream' })
         const url = URL.createObjectURL(blob)
         setAudioURL(url)
         await transcribeAndScore(blob)
@@ -100,8 +101,9 @@ export default function Drill(){
   async function transcribeAndScore(blob: Blob){
     try {
       const form = new FormData()
+      const ext = pickFileExt(blob.type || 'audio/webm')
       // IMPORTANT: field name must match your server's multer config (single('audio'))
-      form.append('audio', blob, 'audio.webm')
+      form.append('audio', blob, `audio.${ext}`)
       form.append('question', question)
       if (cvText) form.append('cvText', cvText)
 
