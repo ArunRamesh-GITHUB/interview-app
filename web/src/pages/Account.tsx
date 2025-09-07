@@ -11,7 +11,6 @@ export default function Account() {
   const [mode, setMode] = React.useState<Mode>('signin') // default = sign in
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
-  const [username, setUsername] = React.useState('')
   const [msg, setMsg] = React.useState<string>('')
   const [loading, setLoading] = React.useState(false)
   const navigate = useNavigate()
@@ -40,7 +39,7 @@ export default function Account() {
     setMsg('')
     setLoading(true)
     try {
-      await post('/api/register', { email, password, username })
+      await post('/api/register', { email, password })
       setMsg('Account created. Please sign in.')
       setMode('signin')
     } catch (err: any) {
@@ -141,13 +140,6 @@ export default function Account() {
                   autoComplete="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  required
-                />
-                <input
-                  className="w-full rounded-lg border border-border px-4 py-3 bg-card text-text-primary font-primary focus:border-primary focus:outline-none transition-colors duration-fast"
-                  placeholder="Username"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
                   required
                 />
                 <input

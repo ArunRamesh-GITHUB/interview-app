@@ -478,14 +478,16 @@ async function retryOpenAICall(apiCall, maxRetries = 3) {
 app.post('/api/register', lightLimiter, async (req, res) => {
   try {
     const { email, password, username } = req.body || {}
-    if (!email || !password || !username) {return res.status(400).json({ error: 'email, password, username required' })}
+    if (!email || !password) {return res.status(400).json({ error: 'email and password required' })}
+    // Generate username from email if not provided
+    const finalUsername = username || email.split('@')[0]
     const { data: created, error: createErr } = await sbAdmin.auth.admin.createUser({
-      email, password, email_confirm: true, user_metadata: { username },
+      email, password, email_confirm: true, user_metadata: { username: finalUsername },
     })
     if (createErr) {return res.status(400).json({ error: createErr.message })}
     const userId = created?.user?.id
     if (!userId) {return res.status(500).json({ error: 'Failed to create user' })}
-    await sbAdmin.from('profiles').upsert({ id: userId, email, username })
+    await sbAdmin.from('profiles').upsert({ id: userId, email, username: finalUsername })
     res.json({ ok: true })
   } catch (e) { console.error(e); res.status(500).json({ error: 'Register failed' }) }
 })
