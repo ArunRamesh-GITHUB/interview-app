@@ -70,22 +70,16 @@ export default function Account() {
   }
 
   return (
-    <div className="min-h-dvh bg-surface flex items-center justify-center px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-headline text-text-primary">
-            {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
-          </CardTitle>
-          <p className="text-body text-text-secondary">
-            {mode === 'signin' ? 'Sign in to continue your interview practice' : 'Start your interview practice journey'}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
+    <div className="min-h-dvh bg-surface relative flex items-center justify-center px-4">
+      {/* Accent overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/8 via-transparent via-purple-500/4 via-transparent to-blue-500/6 pointer-events-none"></div>
+      <Card className="w-full max-w-md bg-black/40 backdrop-blur-md border-white/10 relative z-10">
+        <CardContent className="space-y-6 p-8">
           {/* Toggle */}
-          <div className="flex bg-surface-alt rounded-pill p-1">
+          <div className="flex bg-white/10 rounded-full p-1">
             <button
-              className={`flex-1 rounded-pill px-4 py-2 text-label font-semibold transition-all duration-fast ${
-                mode === 'signin' ? 'bg-primary text-primary-on shadow-level-1' : 'text-text-secondary hover:text-text-primary'
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                mode === 'signin' ? 'bg-orange-500 text-white shadow-lg' : 'text-white/70 hover:text-white'
               }`}
               onClick={() => setMode('signin')}
               type="button"
@@ -93,8 +87,8 @@ export default function Account() {
               Sign in
             </button>
             <button
-              className={`flex-1 rounded-pill px-4 py-2 text-label font-semibold transition-all duration-fast ${
-                mode === 'register' ? 'bg-primary text-primary-on shadow-level-1' : 'text-text-secondary hover:text-text-primary'
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                mode === 'register' ? 'bg-orange-500 text-white shadow-lg' : 'text-white/70 hover:text-white'
               }`}
               onClick={() => setMode('register')}
               type="button"
@@ -103,12 +97,22 @@ export default function Account() {
             </button>
           </div>
 
+          {/* Title */}
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
+            </h1>
+            <p className="text-white/70">
+              {mode === 'signin' ? 'Sign in to continue your interview practice' : 'Start your interview practice journey'}
+            </p>
+          </div>
+
           {/* Forms */}
           {mode === 'signin' ? (
             <form className="space-y-4" onSubmit={onLogin}>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <input
-                  className="w-full rounded-lg border border-border px-4 py-3 bg-card text-text-primary font-primary focus:border-primary focus:outline-none transition-colors duration-fast"
+                  className="w-full rounded-xl border border-white/20 px-4 py-4 bg-white/10 text-white placeholder-white/50 backdrop-blur-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
                   placeholder="Email address"
                   type="email"
                   autoComplete="email"
@@ -117,7 +121,7 @@ export default function Account() {
                   required
                 />
                 <input
-                  className="w-full rounded-lg border border-border px-4 py-3 bg-card text-text-primary font-primary focus:border-primary focus:outline-none transition-colors duration-fast"
+                  className="w-full rounded-xl border border-white/20 px-4 py-4 bg-white/10 text-white placeholder-white/50 backdrop-blur-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
                   placeholder="Password"
                   type="password"
                   autoComplete="current-password"
@@ -126,15 +130,19 @@ export default function Account() {
                   required
                 />
               </div>
-              <Button disabled={loading} variant="primary" type="submit" className="w-full">
+              <button 
+                disabled={loading} 
+                type="submit" 
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-200 shadow-lg"
+              >
                 {loading ? 'Signing in…' : 'Sign in'}
-              </Button>
+              </button>
             </form>
           ) : (
             <form className="space-y-4" onSubmit={onRegister}>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <input
-                  className="w-full rounded-lg border border-border px-4 py-3 bg-card text-text-primary font-primary focus:border-primary focus:outline-none transition-colors duration-fast"
+                  className="w-full rounded-xl border border-white/20 px-4 py-4 bg-white/10 text-white placeholder-white/50 backdrop-blur-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
                   placeholder="Email address"
                   type="email"
                   autoComplete="email"
@@ -143,7 +151,7 @@ export default function Account() {
                   required
                 />
                 <input
-                  className="w-full rounded-lg border border-border px-4 py-3 bg-card text-text-primary font-primary focus:border-primary focus:outline-none transition-colors duration-fast"
+                  className="w-full rounded-xl border border-white/20 px-4 py-4 bg-white/10 text-white placeholder-white/50 backdrop-blur-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all duration-200"
                   placeholder="Password"
                   type="password"
                   autoComplete="new-password"
@@ -152,16 +160,20 @@ export default function Account() {
                   required
                 />
               </div>
-              <Button disabled={loading} variant="primary" type="submit" className="w-full">
+              <button 
+                disabled={loading} 
+                type="submit" 
+                className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-200 shadow-lg"
+              >
                 {loading ? 'Creating account…' : 'Create account'}
-              </Button>
+              </button>
             </form>
           )}
 
           {/* Message */}
           {msg && (
-            <div className="p-3 bg-error/10 border border-error/20 rounded-lg">
-              <p className="text-caption text-error text-center">{msg}</p>
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl backdrop-blur-sm">
+              <p className="text-sm text-red-300 text-center">{msg}</p>
             </div>
           )}
         </CardContent>
