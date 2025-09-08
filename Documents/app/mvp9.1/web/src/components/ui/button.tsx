@@ -8,6 +8,7 @@ export type ButtonVariant =
   | 'outline'
   | 'ghost'
   | 'destructive'
+  | 'yellow'
 
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
@@ -34,6 +35,7 @@ const variants: Record<ButtonVariant, string> = {
   outline: 'border border-border bg-card text-text-primary hover:bg-surface-alt',
   ghost: 'bg-transparent text-text-primary hover:bg-surface-alt',
   destructive: 'bg-error text-card shadow-level-1',
+  yellow: 'bg-accent text-text-primary shadow-level-1 hover:opacity-90 transition-opacity',
 }
 
 function ButtonImpl(

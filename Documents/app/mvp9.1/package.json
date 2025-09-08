@@ -1,33 +1,33 @@
 {
   "name": "nailit-supabase-simple-auth",
   "version": "2.1.0",
+  "private": true,
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "main": "server.js",
   "scripts": {
+    "build:web": "cd web && npm ci && npm run build",
     "start": "node server.js",
     "dev": "node server.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint server.js --fix",
-    "format": "prettier --write server.js",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "format": "prettier --write server.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0",
     "cookie-session": "^2.0.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "expo": "^53.0.22",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.1",
     "express-session": "^1.18.2",
     "helmet": "^7.2.0",
     "multer": "^1.4.5-lts.1",
     "openai": "^4.104.0",
-    "zod": "^3.25.76",
-    "react": "19.0.0",
-    "react-native": "0.79.6",
-    "expo-dev-client": "~5.2.4"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cookie-session": "^2.0.49",
@@ -39,7 +39,6 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-security": "^3.0.1",
     "prettier": "^3.4.2",
-    "typescript": "^5.7.2",
-    "@types/react": "~19.0.10"
+    "typescript": "^5.7.2"
   }
 }

@@ -2,7 +2,7 @@ services:
   - type: web
     name: interview-app
     env: node
-    buildCommand: chmod +x build.sh && ./build.sh
+    buildCommand: npm ci && npm run build:web
     startCommand: npm start
     envVars:
       - key: NODE_ENV

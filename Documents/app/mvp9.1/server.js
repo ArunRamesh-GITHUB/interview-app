@@ -16,6 +16,9 @@ import dotenv from 'dotenv'
 import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { TOKEN_RULES, PLAN_TOKEN_GRANTS, practiceSecondsToTokens, realtimeSecondsToTokens } from './config/pricing.js'
+import { mountRevenueCatWebhook } from './server/plugins/revenuecatWebhook.js'
+import { handleRevenueCatWebhook } from './server/routes/webhooks/revenuecat.js'
 
 
 dotenv.config()
@@ -229,17 +232,23 @@ async function generateContextualFollowups(transcript, question, persona = 'medi
                           persona === 'medical' ? 'Medical school interview' : 
                           persona === 'apprenticeship' ? 'Degree apprenticeship interview' : 'Interview';
     
-    const prompt = `You are an expert interviewer for a ${personaContext}. Generate ${maxFollowups} specific follow-up questions that reference the candidate's actual response.
+    const prompt = `You are an expert interviewer for a ${personaContext}. Generate ${maxFollowups} specific follow-up questions that directly reference what the candidate actually said.
 
 Original Question: "${question}"
 
 Candidate's Response: "${transcript}"
 
-Requirements for follow-up questions:
-- Quote or paraphrase something the candidate said
-- Probe deeper into their reasoning, examples, or claims  
-- Be specific to this response, not generic
-- Match the interview style: ${persona === 'oxbridge' ? 'analytical, probing assumptions' : persona === 'medical' ? 'ethical, empathy-focused' : 'practical, problem-solving focused'}
+CRITICAL REQUIREMENTS for follow-up questions:
+1. MUST quote, paraphrase, or reference specific words/phrases the candidate used
+2. MUST probe deeper into their reasoning, examples, assumptions, or claims
+3. MUST be specific to this response - avoid generic questions like "Can you elaborate?" or "Tell me more"
+4. Start questions with phrases like "You mentioned...", "You said...", "When you described...", "You talked about..."
+5. Match interview style: ${persona === 'oxbridge' ? 'analytical, challenging assumptions, testing logical consistency' : persona === 'medical' ? 'exploring ethical reasoning, empathy, patient-centered thinking' : 'practical problem-solving, real-world application, workplace scenarios'}
+
+Examples of GOOD contextual follow-ups:
+- "You mentioned X - what led you to that specific conclusion?"
+- "When you described Y, how did you ensure Z?"
+- "You said 'abc' - can you walk me through your thinking there?"
 
 Return JSON: {"followups": ["question1", "question2"]}`;
 
@@ -247,21 +256,42 @@ Return JSON: {"followups": ["question1", "question2"]}`;
       return await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 150,
-        temperature: 0.3,
+        max_tokens: 200,
+        temperature: 0.2,
         response_format: { type: 'json_object' }
       })
     });
 
     const response = completion.choices[0]?.message?.content;
-    if (!response) {return generateBasicFollowups(transcript, question, maxFollowups);}
+    if (!response) {
+      throw new Error('No response from OpenAI');
+    }
 
     const parsed = JSON.parse(response);
     const followups = parsed.followups || parsed.questions || [];
     
-    return Array.isArray(followups) 
-      ? followups.filter(q => typeof q === 'string' && q.trim().length > 10).slice(0, maxFollowups)
-      : generateBasicFollowups(transcript, question, maxFollowups);
+    if (!Array.isArray(followups) || followups.length === 0) {
+      throw new Error('No valid followups generated');
+    }
+    
+    // Filter for truly contextual questions that reference the candidate's response
+    const contextualQuestions = followups
+      .filter(q => typeof q === 'string' && q.trim().length > 15)
+      .filter(q => {
+        const lower = q.toLowerCase();
+        // Must contain contextual references
+        const hasContextualRef = /\b(you mentioned|you said|you described|you talked about|when you|your answer|your response|your example|your approach|your experience|you stated|you explained|you discussed)\b/i.test(q);
+        // Must not be too generic
+        const isNotGeneric = !(/^(can you|could you|tell me|describe|explain|what|how|why)\b/i.test(q) && q.split(' ').length < 10);
+        return hasContextualRef && isNotGeneric;
+      })
+      .slice(0, maxFollowups);
+    
+    if (contextualQuestions.length === 0) {
+      throw new Error('Generated questions not contextual enough');
+    }
+    
+    return contextualQuestions;
   } catch (error) {
     console.error('Error generating contextual follow-ups:', error);
     return generateBasicFollowups(transcript, question, maxFollowups);
@@ -311,13 +341,19 @@ async function generateImmediateScore(transcript, question, persona = 'medical',
     }
   }
 
-  // Generate basic follow-up questions while we wait for proper scoring
+  // Generate contextual follow-up questions immediately
   let followupQuestions = []
   try {
-    followupQuestions = generateBasicFollowups(transcript, question, 2)
+    followupQuestions = await generateContextualFollowups(transcript, question, persona, subject, 2)
   } catch (error) {
-    console.error('Followup generation failed:', error)
-    followupQuestions = []
+    console.error('Contextual followup generation failed:', error)
+    // Fallback to basic followups only if contextual fails
+    try {
+      followupQuestions = generateBasicFollowups(transcript, question, 2)
+    } catch (fallbackError) {
+      console.error('Basic followup generation failed:', fallbackError)
+      followupQuestions = []
+    }
   }
 
   return {
@@ -377,27 +413,25 @@ app.use(
 const strictLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 })
 const lightLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 })
 
-// Serve built React app in production, fallback to public
-if (process.env.NODE_ENV === 'production') {
-  const reactDistPath = path.join(__dirname, 'web/dist')
-  console.log('Checking for React build at:', reactDistPath)
-  console.log('React build exists:', fs.existsSync(reactDistPath))
-  
-  if (fs.existsSync(reactDistPath)) {
-    console.log('✅ Serving React app from web/dist')
-    app.use(express.static(reactDistPath))
-  } else {
-    console.log('⚠️ React build not found, serving from public directory')
-    app.use(express.static(path.join(__dirname, 'public')))
-  }
-} else {
-  // Serve static files from public in development
-  app.use(express.static(path.join(__dirname, 'public')))
-}
+// --- Serve SPA build (Vite) from ./web/dist --- //
+const SPA_DIR = path.join(__dirname, 'web', 'dist')
+app.use(express.static(SPA_DIR))
 
+// Serve fallback static files from public directory
+app.use(express.static(path.join(__dirname, 'public')))
+
+// Mount RevenueCat webhook
+mountRevenueCatWebhook(app, { sbAdmin })
 // ---------- Helpers ----------
 function authRequired(req, res, next) { if (req.session?.user?.id) {return next();} return res.status(401).json({ error: 'Not authenticated' }) }
 function currentUser(req) { return req.session?.user || null }
+function requireServer(req, res, next) {
+  const key = req.headers["x-internal-key"];
+  if (!key || key !== process.env.INTERNAL_SERVER_KEY) {
+    return res.status(401).json({ error: "Server-only endpoint" });
+  }
+  next();
+}
 function hashKey(s) { return crypto.createHash('sha1').update(s).digest('hex') }
 function safeJSON(s) { try { return JSON.parse(s) } catch { return null } }
 
@@ -456,14 +490,16 @@ async function retryOpenAICall(apiCall, maxRetries = 3) {
 app.post('/api/register', lightLimiter, async (req, res) => {
   try {
     const { email, password, username } = req.body || {}
-    if (!email || !password || !username) {return res.status(400).json({ error: 'email, password, username required' })}
+    if (!email || !password) {return res.status(400).json({ error: 'email and password required' })}
+    // Generate username from email if not provided
+    const finalUsername = username || email.split('@')[0]
     const { data: created, error: createErr } = await sbAdmin.auth.admin.createUser({
-      email, password, email_confirm: true, user_metadata: { username },
+      email, password, email_confirm: true, user_metadata: { username: finalUsername },
     })
     if (createErr) {return res.status(400).json({ error: createErr.message })}
     const userId = created?.user?.id
     if (!userId) {return res.status(500).json({ error: 'Failed to create user' })}
-    await sbAdmin.from('profiles').upsert({ id: userId, email, username })
+    await sbAdmin.from('profiles').upsert({ id: userId, email, username: finalUsername })
     res.json({ ok: true })
   } catch (e) { console.error(e); res.status(500).json({ error: 'Register failed' }) }
 })
@@ -794,7 +830,7 @@ Use clear structure. If CV/context is provided, tailor appropriately. Return pla
 }
 
 // ---------- API: SCORE / MODEL ANSWER ----------
-app.post('/api/score', strictLimiter, async (req, res) => {
+app.post('/api/score', strictLimiter, requireActiveTokenSession, async (req, res) => {
   try {
     const { question, answer, cvText } = req.body || {}
     if (!question || !answer) {return res.status(400).json({ error: 'question and answer required' })}
@@ -813,7 +849,7 @@ app.post('/api/score', strictLimiter, async (req, res) => {
   }
 })
 
-app.post('/api/model-answer', strictLimiter, async (req, res) => {
+app.post('/api/model-answer', strictLimiter, requireActiveTokenSession, async (req, res) => {
   try {
     const { question, cvText } = req.body || {}
     if (!question) {return res.status(400).json({ error: 'question required' })}
@@ -886,7 +922,7 @@ app.get('/api/tts11', strictLimiter, async (req, res) => {
 })
 
 // ---------- FAST TRANSCRIBE (IMMEDIATE RESPONSE) + SCORE ----------
-app.post('/api/transcribe-fast', strictLimiter, upload.single('audio'), async (req, res) => {
+app.post('/api/transcribe-fast', strictLimiter, requireActiveTokenSession, upload.single('audio'), async (req, res) => {
   try {
     const file = req.file
     const question = (req.body?.question || '').toString()
@@ -1010,7 +1046,7 @@ app.get('/api/detailed-results/:processingId', lightLimiter, async (req, res) =>
 })
 
 // ---------- TRANSCRIBE + SCORE (LEGACY - FULL PROCESSING) ----------
-app.post('/api/transcribe', strictLimiter, upload.single('audio'), async (req, res) => {
+app.post('/api/transcribe', strictLimiter, requireActiveTokenSession, upload.single('audio'), async (req, res) => {
   try {
     const file = req.file
     const question = (req.body?.question || '').toString()
@@ -1211,8 +1247,8 @@ async function createRealtimeSession(req, res) {
   }
 }
 
-app.post('/api/realtime/session', createRealtimeSession)
-app.post('/realtime/session', createRealtimeSession)
+app.post('/api/realtime/session', requireActiveTokenSession, createRealtimeSession)
+app.post('/realtime/session', requireActiveTokenSession, createRealtimeSession)
 
 // ---------- Realtime Function Calls ----------
 async function handleRealtimeFunctionCall(req, res) {
@@ -1271,22 +1307,402 @@ async function handleRealtimeFunctionCall(req, res) {
 
 app.post('/api/realtime/function-call', handleRealtimeFunctionCall)
 
+// ==================== METERING ROUTES ====================
+// Note: Using existing token consumption endpoints instead of custom routes
+
+// ==================== TOKEN SYSTEM ROUTES ====================
+
+// GET /api/tokens/balance
+app.get('/api/tokens/balance', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+
+    const { data, error } = await sbAdmin
+      .from("user_wallets")
+      .select("balance_tokens")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    const balance = data?.balance_tokens ?? 0;
+    res.json({ balanceTokens: Number(balance), rules: TOKEN_RULES });
+  } catch (err) {
+    console.error('Token balance error:', err);
+    res.status(500).json({ error: 'Failed to get token balance' });
+  }
+});
+
+// POST /api/tokens/grant (server-only; used by webhooks)
+app.post('/api/tokens/grant', requireServer, async (req, res) => {
+  try {
+    const { userId, amount, reason, metadata } = req.body ?? {};
+    if (!userId || !amount || !reason) {
+      return res.status(400).json({ error: "userId, amount, reason required" });
+    }
+
+    const { data, error } = await sbAdmin.rpc("sp_grant_tokens", {
+      p_user_id: userId,
+      p_amount: amount,
+      p_reason: reason,
+      p_metadata: metadata ?? {},
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ newBalance: Number(data) });
+  } catch (err) {
+    console.error('Token grant error:', err);
+    res.status(500).json({ error: 'Failed to grant tokens' });
+  }
+});
+
+// POST /api/tokens/consume
+// body: { kind: "practice"|"realtime", seconds: number, metadata?: any }
+app.post('/api/tokens/consume', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const { kind, seconds, metadata } = req.body ?? {};
+    if (!kind || typeof seconds !== "number") {
+      return res.status(400).json({ error: "kind and seconds required" });
+    }
+
+    const tokens = kind === "realtime"
+      ? realtimeSecondsToTokens(seconds)
+      : practiceSecondsToTokens(seconds);
+
+    const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+      p_user_id: userId,
+      p_amount: tokens,
+      p_reason: `consume_${kind}`,
+      p_metadata: metadata ?? {},
+    });
+
+    if (error) {
+      if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+        return res.status(402).json({ error: "INSUFFICIENT_TOKENS" });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ consumedTokens: tokens, newBalance: Number(data) });
+  } catch (err) {
+    console.error('Token consume error:', err);
+    res.status(500).json({ error: 'Failed to consume tokens' });
+  }
+});
+
+// Token session management for proper gating
+const inMemoryTokenSessions = new Map(); // sessionId -> { userId, mode, startedAt, startCharge }
+
+// POST /api/token-session/start
+app.post('/api/token-session/start', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const { mode = "practice" } = req.body;
+
+    // Minimum start charge based on mode
+    const startCharge = mode === "realtime" ? 1.5 : 0.25;
+
+    // Immediately charge the minimum to start the session
+    let tokenConsumed = false;
+    try {
+      const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+        p_user_id: userId,
+        p_amount: startCharge,
+        p_reason: `session_start_${mode}`,
+        p_metadata: { mode, startCharge },
+      });
+
+      if (error) {
+        if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+          return res.status(402).json({ error: "INSUFFICIENT_TOKENS" });
+        }
+        // Check if it's a function not found error (database schema not set up)
+        if (String(error.message).includes("function") && String(error.message).includes("does not exist")) {
+          console.warn(`⚠️  Token database schema not set up. Running in development mode. Error: ${error.message}`);
+          tokenConsumed = false; // Continue without consuming tokens
+        } else {
+          return res.status(500).json({ error: error.message });
+        }
+      } else {
+        tokenConsumed = true;
+      }
+    } catch (dbError) {
+      console.warn(`⚠️  Token system error, continuing in development mode: ${dbError.message}`);
+      tokenConsumed = false;
+    }
+
+    const sessionId = randomUUID();
+    inMemoryTokenSessions.set(sessionId, {
+      userId,
+      mode,
+      startedAt: Date.now(),
+      startCharge
+    });
+
+    res.json({ 
+      sessionId, 
+      charged: tokenConsumed ? startCharge : 0,
+      developmentMode: !tokenConsumed 
+    });
+  } catch (err) {
+    console.error('Token session start error:', err);
+    res.status(500).json({ error: 'Failed to start token session' });
+  }
+});
+
+// POST /api/token-session/stop
+app.post('/api/token-session/stop', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const { sessionId, durationMs } = req.body;
+    
+    const session = inMemoryTokenSessions.get(sessionId);
+    if (!session || session.userId !== userId) {
+      return res.status(400).json({ error: "INVALID_SESSION" });
+    }
+
+    const actualMs = Math.max(0, Number(durationMs ?? (Date.now() - session.startedAt)));
+    const actualSeconds = Math.floor(actualMs / 1000);
+    
+    // Calculate total tokens needed for this session
+    const totalTokens = session.mode === "realtime"
+      ? realtimeSecondsToTokens(actualSeconds)
+      : practiceSecondsToTokens(actualSeconds);
+
+    // Calculate what we still need to charge (total - already charged at start)
+    const toSettle = Math.max(0, totalTokens - session.startCharge);
+
+    let settledTokens = 0;
+    if (toSettle > 0) {
+      try {
+        const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+          p_user_id: userId,
+          p_amount: toSettle,
+          p_reason: `session_settle_${session.mode}`,
+          p_metadata: {
+            mode: session.mode,
+          durationMs: actualMs,
+          startCharge: session.startCharge,
+          settleCharge: toSettle,
+          totalTokens
+        },
+      });
+
+        if (error) {
+          if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+            return res.status(402).json({ error: "INSUFFICIENT_TOKENS_DURING_SETTLE" });
+          }
+          // Check if it's a function not found error (database schema not set up)
+          if (String(error.message).includes("function") && String(error.message).includes("does not exist")) {
+            console.warn(`⚠️  Token database schema not set up. Running in development mode for session stop.`);
+            settledTokens = 0; // Continue without settling tokens
+          } else {
+            return res.status(500).json({ error: error.message });
+          }
+        } else {
+          settledTokens = toSettle;
+        }
+      } catch (dbError) {
+        console.warn(`⚠️  Token system error during session stop, continuing in development mode: ${dbError.message}`);
+        settledTokens = 0;
+      }
+    }
+
+    inMemoryTokenSessions.delete(sessionId);
+    res.json({ totalTokens, settledNow: toSettle });
+  } catch (err) {
+    console.error('Token session stop error:', err);
+    res.status(500).json({ error: 'Failed to stop token session' });
+  }
+});
+
+// POST /api/tokens/ensure - Check if user has enough tokens before starting
+app.post('/api/tokens/ensure', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const { min } = req.body;
+    
+    const { data, error } = await sbAdmin
+      .from("user_wallets")
+      .select("balance_tokens")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    const balance = Number(data?.balance_tokens ?? 0);
+    
+    if (balance < Number(min || 0)) {
+      return res.status(402).json({
+        error: "INSUFFICIENT_TOKENS",
+        balance,
+        required: Number(min || 0)
+      });
+    }
+    
+    res.json({ ok: true, balance });
+  } catch (err) {
+    console.error('Token ensure error:', err);
+    res.status(500).json({ error: 'Failed to ensure tokens' });
+  }
+});
+
+// Middleware to require active token session for costly operations
+function requireActiveTokenSession(req, res, next) {
+  const sessionId = req.header("x-token-session-id");
+  if (!sessionId) {
+    return res.status(401).json({ error: "NO_ACTIVE_SESSION" });
+  }
+  
+  const session = inMemoryTokenSessions.get(sessionId);
+  if (!session) {
+    return res.status(401).json({ error: "INVALID_SESSION" });
+  }
+  
+  const userId = currentUser(req)?.id;
+  if (!userId || session.userId !== userId) {
+    return res.status(401).json({ error: "SESSION_USER_MISMATCH" });
+  }
+  
+  // Attach session info to request for potential use
+  req.tokenSession = session;
+  next();
+}
+
+// Optional: session reservation (pre-auth) for realtime
+// POST /api/realtime/start { estimateSeconds } -> returns reserved tokens
+app.post('/api/realtime/start', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const estimateSeconds = Math.max(10, Number(req.body?.estimateSeconds) || 60);
+    const tokens = realtimeSecondsToTokens(estimateSeconds);
+
+    const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+      p_user_id: userId,
+      p_amount: tokens,
+      p_reason: "reserve_realtime",
+      p_metadata: { estimateSeconds },
+    });
+    if (error) {
+      if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+        return res.status(402).json({ error: "INSUFFICIENT_TOKENS" });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ reservedTokens: tokens, reservationBalance: Number(data) });
+  } catch (err) {
+    console.error('Realtime start error:', err);
+    res.status(500).json({ error: 'Failed to start realtime session' });
+  }
+});
+
+// POST /api/realtime/finish { actualSeconds }
+app.post('/api/realtime/finish', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const actualSeconds = Math.max(10, Number(req.body?.actualSeconds) || 60);
+    const actualTokens = realtimeSecondsToTokens(actualSeconds);
+
+    // We reserved on start; now reconcile: if actual > reserved, consume diff; if less, grant back diff.
+    const reserved = Number(req.body?.reservedTokens) || actualTokens;
+    const diff = +(actualTokens - reserved).toFixed(2);
+
+    if (diff === 0) return res.json({ settled: true });
+
+    const fn = diff > 0 ? "sp_consume_tokens" : "sp_grant_tokens";
+    const { data, error } = await sbAdmin.rpc(fn, {
+      p_user_id: userId,
+      p_amount: Math.abs(diff),
+      p_reason: "realtime_settlement",
+      p_metadata: { actualSeconds, reservedTokens: reserved },
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ settled: true, newBalance: Number(data) });
+  } catch (err) {
+    console.error('Realtime finish error:', err);
+    res.status(500).json({ error: 'Failed to finish realtime session' });
+  }
+});
+
+// ==================== BILLING WEBHOOK ROUTES ====================
+
+// Stripe webhook stub (listen to 'invoice.paid' or 'checkout.session.completed')
+app.post('/api/billing/stripe/webhook', async (req, res) => {
+  try {
+    // TODO: verify signature; here we simulate
+    const event = req.body || {};
+    const userId = event?.metadata?.userId;
+    const planId = event?.metadata?.planId || "starter";
+
+    if (!userId || !PLAN_TOKEN_GRANTS[planId]) {
+      return res.status(400).json({ error: "missing userId/planId" });
+    }
+
+    const grant = PLAN_TOKEN_GRANTS[planId].monthlyTokens;
+    const { data, error } = await sbAdmin.rpc("sp_grant_tokens", {
+      p_user_id: userId,
+      p_amount: grant,
+      p_reason: `stripe_${planId}_monthly_grant`,
+      p_metadata: { eventId: event.id || "simulated" },
+    });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ ok: true, newBalance: Number(data) });
+  } catch (err) {
+    console.error('Stripe webhook error:', err);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// RevenueCat webhook stub (listen to ENTITLEMENT_ACTIVE)
+app.post('/api/billing/revenuecat/webhook', async (req, res) => {
+  try {
+    const event = req.body || {};
+    const userId = event?.app_user_id;
+    const planId = event?.entitlement_id || "starter";
+
+    if (!userId || !PLAN_TOKEN_GRANTS[planId]) {
+      return res.status(400).json({ error: "missing userId/planId" });
+    }
+
+    const grant = PLAN_TOKEN_GRANTS[planId].monthlyTokens;
+    const { data, error } = await sbAdmin.rpc("sp_grant_tokens", {
+      p_user_id: userId,
+      p_amount: grant,
+      p_reason: `revenuecat_${planId}_monthly_grant`,
+      p_metadata: { event },
+    });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ ok: true, newBalance: Number(data) });
+  } catch (err) {
+    console.error('RevenueCat webhook error:', err);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+// Simple affiliate bind endpoint
+app.post('/api/affiliate/bind', authRequired, async (req, res) => {
+  try {
+    const user = currentUser(req)
+    // This is just a placeholder endpoint - affiliate binding logic
+    // could be implemented here or may already exist in your profiles table
+    res.json({ ok: true, message: 'Affiliate bind endpoint called' })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Affiliate bind failed' })
+  }
+})
+// ---------- RevenueCat Webhook ----------
+app.post('/webhooks/revenuecat', express.raw({ type: 'application/json' }), async (req, res) => {
+  await handleRevenueCatWebhook(req, res, sbAdmin)
+})
+
 // ---------- Health ----------
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
-// Catch-all handler for React Router (must be last)
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    const reactIndex = path.join(__dirname, 'web/dist/index.html')
-    const fallbackIndex = path.join(__dirname, 'public/index.html')
-    
-    if (fs.existsSync(reactIndex)) {
-      res.sendFile(reactIndex)
-    } else {
-      res.sendFile(fallbackIndex)
-    }
-  })
-}
+// Fallback to index.html for client-side routes
+app.get('*', (req, res, next) => {
+  // Only fall back if this isn't an API route
+  if (req.path.startsWith('/api') || req.path.startsWith('/auth')) return next()
+  res.sendFile(path.join(SPA_DIR, 'index.html'))
+})
 
 // ---------- Start ----------
 console.log('Realtime model (locked):', REALTIME_MODEL)

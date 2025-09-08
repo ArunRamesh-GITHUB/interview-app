@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -25,6 +25,5 @@
     "web",
     "mobile-shell",
     "public"
-  ],
-  "extends": "expo/tsconfig.base"
+  ]
 }

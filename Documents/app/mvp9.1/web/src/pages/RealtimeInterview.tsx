@@ -4,6 +4,10 @@ import { useAuth } from '../lib/auth'
 import { PersonaKey, OxbridgeSubject, PERSONA_CONFIGS, OXBRIDGE_SUBJECTS, buildInstructions } from '../lib/personas'
 import { RealtimeQuestionBankManager, RealtimePersonaKey, RealtimeOxbridgeSubject } from '../lib/realtimeQuestionBank'
 import { RealtimeQuestionBankManagerComponent } from '../components/ui/realtime-question-bank-manager'
+import { TokenSessionManager, fetchTokenBalance } from '../lib/tokenSession'
+import { OutOfTokensModal } from '../components/ui/OutOfTokensModal'
+import { Badge } from '../components/ui/badge'
+import { useTokenGate } from '../lib/tokenValidation'
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error'
 
@@ -22,6 +26,30 @@ export default function RealtimeInterview() {
   const [timeRemaining, setTimeRemaining] = React.useState<number | null>(null)
   const [timerInterval, setTimerInterval] = React.useState<NodeJS.Timeout | null>(null)
   const [showQuestionManager, setShowQuestionManager] = React.useState<boolean>(false)
+
+  // Token session management
+  const [tokenSession] = React.useState(() => new TokenSessionManager("realtime"))
+  const [tokenBalance, setTokenBalance] = React.useState<number | null>(null)
+  const [showOutOfTokensModal, setShowOutOfTokensModal] = React.useState(false)
+  
+  // Token gate for zero token validation
+  const { checkTokensOrShowModal, TokenGateModal } = useTokenGate()
+
+  // Refresh token balance
+  const refreshTokenBalance = React.useCallback(async () => {
+    try {
+      const balance = await fetchTokenBalance()
+      setTokenBalance(balance)
+    } catch (error) {
+      console.error('Failed to fetch token balance:', error)
+      setTokenBalance(0)
+    }
+  }, [])
+
+  // Initialize token balance
+  React.useEffect(() => {
+    refreshTokenBalance()
+  }, [refreshTokenBalance])
 
   // Refs for WebRTC
   const pcRef = React.useRef<RTCPeerConnection | null>(null)
@@ -56,7 +84,17 @@ export default function RealtimeInterview() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
-  const cleanup = () => {
+  const cleanup = async () => {
+    // Stop token session
+    if (tokenSession.isActive()) {
+      try {
+        await tokenSession.stop()
+        await refreshTokenBalance()
+      } catch (e) {
+        console.warn("Token session stop failed:", e)
+      }
+    }
+    
     // Clear timer
     if (timerInterval) {
       clearInterval(timerInterval)
@@ -91,11 +129,21 @@ export default function RealtimeInterview() {
       setErrorMsg('Please sign in first')
       return
     }
+    
+    // Check tokens before connecting (realtime requires minimum 5 tokens)
+    if (!checkTokensOrShowModal(5)) {
+      return
+    }
 
     setStatus('connecting')
     setErrorMsg('')
 
     try {
+      // Start token session before connecting
+      if (!tokenSession.isActive()) {
+        await tokenSession.start()
+        await refreshTokenBalance()
+      }
       // 1. Get ephemeral token
       const voice = persona ? PERSONA_CONFIGS[persona].voiceDefault || 'alloy' : 'alloy'
       const finalInstructions = persona ? buildInstructions(persona, subject || undefined, enableRating) : instructions
@@ -103,7 +151,10 @@ export default function RealtimeInterview() {
       const sessionRes = await fetch('/api/realtime/session', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-token-session-id': tokenSession.getSessionId() || ''
+        },
         body: JSON.stringify({
           instructions: finalInstructions,
           voice
@@ -151,7 +202,7 @@ export default function RealtimeInterview() {
       const dc = pc.createDataChannel('oai-events')
       dcRef.current = dc
 
-      dc.onopen = () => {
+      dc.onopen = async () => {
         primedRef.current = false
         
         const finalInstructions = persona ? buildInstructions(persona, subject || undefined, enableRating) : instructions
@@ -166,6 +217,14 @@ export default function RealtimeInterview() {
           }
         }
         dc.send(JSON.stringify(sessionUpdate))
+        
+        // Start token metering after successful connection
+        try {
+          await meter.start()
+        } catch (e) {
+          console.warn("Token metering failed to start:", e)
+          // Connection can continue even if metering fails
+        }
         
         setStatus('connected')
         startTimer()
@@ -204,7 +263,19 @@ export default function RealtimeInterview() {
 
       if (!realtimeRes.ok) {
         const errorText = await realtimeRes.text()
-        throw new Error(`Realtime API error ${realtimeRes.status}: ${errorText}`)
+        
+        // Handle specific error cases with user-friendly messages
+        if (realtimeRes.status === 503) {
+          throw new Error('The AI service is temporarily unavailable. This usually means you\'ve run out of tokens or the service is overloaded. Please try again in a few moments or check your token balance.')
+        } else if (realtimeRes.status === 401) {
+          throw new Error('Authentication failed. Please refresh the page and try again.')
+        } else if (realtimeRes.status === 429) {
+          throw new Error('Rate limit exceeded. Please wait a moment before trying again.')
+        } else if (realtimeRes.status === 400) {
+          throw new Error('Invalid request. Please check your settings and try again.')
+        } else {
+          throw new Error(`Connection failed (Error ${realtimeRes.status}). Please try again or contact support if the issue persists.`)
+        }
       }
 
       const answerSdp = await realtimeRes.text()
@@ -214,14 +285,19 @@ export default function RealtimeInterview() {
       })
 
     } catch (error: any) {
-      setErrorMsg(error.message)
-      setStatus('error')
-      cleanup()
+      if (error?.message === 'INSUFFICIENT_TOKENS') {
+        setShowOutOfTokensModal(true)
+        setStatus('idle')
+      } else {
+        setErrorMsg(error.message)
+        setStatus('error')
+      }
+      cleanup().catch(console.error)
     }
   }
 
   const disconnect = () => {
-    cleanup()
+    cleanup().catch(console.error)
   }
 
   const sendFirstQuestion = () => {
@@ -309,8 +385,36 @@ export default function RealtimeInterview() {
 
       {/* Error Display */}
       {errorMsg && (
-        <div className="p-3 bg-error/10 border border-error/20 rounded-md text-error text-sm">
-          {errorMsg}
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">Connection Error</h3>
+              <p className="text-sm text-red-700 dark:text-red-300">{errorMsg}</p>
+              {errorMsg.includes('tokens') && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => window.location.href = '/plans'}
+                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-800 dark:text-red-200 bg-red-100 dark:bg-red-800/30 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors"
+                  >
+                    Get More Tokens
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setErrorMsg('')}
+              className="flex-shrink-0 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
@@ -350,6 +454,21 @@ export default function RealtimeInterview() {
       {!user && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-yellow-800">Please sign in to use the Realtime NailIT Interview.</p>
+        </div>
+      )}
+
+      {/* Token Warning Banner */}
+      {user && tokenBalance !== null && tokenBalance < 1.5 && (
+        <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-200">
+          <div className="flex items-center justify-between">
+            <span>You have {tokenBalance} tokens. You need at least 1.5 tokens to use realtime features.</span>
+            <button
+              className="ml-2 underline hover:opacity-80 text-amber-200"
+              onClick={() => window.location.href = '/plans'}
+            >
+              Go to Plans
+            </button>
+          </div>
         </div>
       )}
 
@@ -455,11 +574,17 @@ export default function RealtimeInterview() {
             <div className="flex gap-1 sm:gap-2 flex-wrap items-center">
               <Button
                 onClick={connect}
-                disabled={status !== 'idle' || !user || (persona === 'oxbridge' && !subject)}
+                disabled={status !== 'idle' || !user || (persona === 'oxbridge' && !subject) || (tokenBalance !== null && tokenBalance < 1.5)}
                 className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-4"
               >
                 Connect
               </Button>
+              
+              {tokenBalance !== null && (
+                <Badge variant="outline" className="px-2 py-1 text-xs">
+                  Tokens: {tokenBalance?.toFixed(1) || '0.0'}
+                </Badge>
+              )}
               
               {status === 'connected' && (
                 <>
@@ -548,6 +673,16 @@ export default function RealtimeInterview() {
         currentPersona={persona as RealtimePersonaKey | null}
         currentSubject={subject as RealtimeOxbridgeSubject | null}
       />
+
+      {/* Out of Tokens Modal */}
+      <OutOfTokensModal
+        open={showOutOfTokensModal}
+        onClose={() => setShowOutOfTokensModal(false)}
+        currentBalance={tokenBalance || 0}
+      />
+      
+      {/* Token Gate Modal */}
+      <TokenGateModal />
     </div>
   )
 }

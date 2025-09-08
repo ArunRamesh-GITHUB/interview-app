@@ -1,0 +1,139 @@
+📱 MOBILE SHELL - BUILD & SUBMISSION COMMANDS
+============================================
+
+## Prerequisites
+1. Install EAS CLI globally:
+   npm install -g @expo/eas-cli
+
+2. Login to Expo:
+   eas login
+
+3. Navigate to mobile app directory:
+   cd mobile-shell
+
+## 🔧 Development & Testing Commands
+
+### Preview Builds (Internal Testing)
+# Android preview
+npm run build:android:preview
+eas submit -p android --latest
+
+# iOS preview  
+npm run build:ios:preview
+eas submit -p ios --latest
+
+### Development Builds
+# Android development build
+eas build -p android --profile development
+
+# iOS development build
+eas build -p ios --profile development
+
+## 🚀 Production Build Commands
+
+### Android (Google Play Store)
+# Build production APK/AAB
+npm run build:android
+
+# Submit to Google Play Console
+npm run submit:android
+
+# Alternative with explicit credentials:
+eas submit -p android --latest --service-account-key-path="/path/to/service-account.json"
+
+### iOS (App Store Connect)
+# Build production IPA
+npm run build:ios
+
+# Submit to App Store Connect
+npm run submit:ios
+
+# Alternative with explicit credentials:
+eas submit -p ios --latest --asc-api-key-path="/path/to/AuthKey_XXXXXXXXXX.p8" --asc-api-key-id="YOUR_KEY_ID" --asc-api-issuer-id="YOUR_ISSUER_ID"
+
+## 🔍 Validation & Debugging Commands
+
+### Project Validation
+# Run Expo doctor
+npm run doctor
+
+# Check package versions
+npx expo install --check
+
+# Validate project structure
+node ../tools/pack_release.js
+
+### Build Monitoring
+# List recent builds
+eas build:list
+
+# Check specific build status
+eas build:view [BUILD_ID]
+
+# Cancel build if needed
+eas build:cancel [BUILD_ID]
+
+### Credentials Management
+# View all credentials
+eas credentials
+
+# Platform-specific credentials
+eas credentials -p android
+eas credentials -p ios
+
+# Reset credentials (if issues)
+eas credentials -p android --clear
+eas credentials -p ios --clear
+
+## 🛠 Troubleshooting Commands
+
+### Clear Build Cache
+eas build --clear-cache
+
+### Local Builds (Android only)
+eas build -p android --local
+
+### Asset Validation
+# The assets are embedded as Base64, so file path warnings in expo-doctor are expected
+
+## 📋 Environment Variables (Create .env.local)
+GOOGLE_SERVICE_ACCOUNT_KEY="/path/to/service-account.json"
+ASC_KEY_ID="YOUR_APP_STORE_CONNECT_KEY_ID"
+ASC_ISSUER_ID="YOUR_ISSUER_ID"
+ASC_KEY_PATH="/path/to/AuthKey_XXXXXXXXXX.p8"
+EXPO_TOKEN="YOUR_EXPO_ACCESS_TOKEN"
+
+## ⚠️ Current Known Issues
+1. Asset file path warnings in expo-doctor (expected - assets are Base64 encoded)
+2. Some @expo/config-plugins version warnings (does not block builds)
+3. Placeholder assets need replacement with actual branding
+
+## ✅ Ready for Build When:
+- Store credentials configured
+- Privacy policy created and hosted
+- Store listings prepared
+- Assets replaced with actual branding
+- All blockers in CHECKLIST.md resolved
+
+## 🔄 Typical Workflow:
+1. Fix any blockers in CHECKLIST.md
+2. Test with preview builds first
+3. Submit to internal testing/TestFlight
+4. Test thoroughly
+5. Submit to production stores
+6. Monitor review process
+
+## 📞 Emergency Commands:
+# If build fails, try clearing cache:
+eas build --clear-cache
+
+# If credentials corrupted:
+eas credentials -p [platform] --clear
+eas credentials -p [platform]
+
+# If need to update submitted build:
+# (Build new version with incremented build number)
+
+---
+Generated: 2025-09-04
+Status: Ready for build (pending asset replacement and store setup)

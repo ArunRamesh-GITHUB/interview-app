@@ -1,15 +1,10 @@
-{
-  "extends": "expo/tsconfig.base",
+﻿{
   "compilerOptions": {
+    "target": "ES2020",
+    "jsx": "react-jsx",
+    "moduleResolution": "node",
     "strict": true,
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
-  },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx"
-  ]
+    "baseUrl": ".",
+    "paths": { "@/*": ["./*"] }
+  }
 }

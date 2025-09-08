@@ -8,8 +8,7 @@ export * from './segmented-control'
 export * from './bar-chart'
 export * from './avatar-group'
 export * from './rating-row'
-export * from './bottom-nav'
-export * from './floating-action'
+export * from './TokenBalance'
 
 // Layout Components  
 export * from './app-header'

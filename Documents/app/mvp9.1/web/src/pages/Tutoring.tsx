@@ -90,6 +90,7 @@ function TutorCard({ tutor }: { tutor: Tutor }) {
               {tutor.stripe_payment_link_url && (
                 <Button 
                   size="sm" 
+                  variant="yellow"
                   onClick={() => {
                     analytics.tutorBookClicked(tutor.id)
                     window.open(tutor.stripe_payment_link_url, '_blank')
@@ -361,10 +362,6 @@ function TutorsTab() {
         )}
       </div>
 
-      {/* Footer */}
-      <div className="text-center text-sm text-text-secondary">
-        Pay first, then pick a time. Full refund if no slot in 72h.
-      </div>
     </div>
   )
 }

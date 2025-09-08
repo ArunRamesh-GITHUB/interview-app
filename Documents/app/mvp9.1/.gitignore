@@ -68,3 +68,43 @@ AppData/
 
 # Windows user directories
 ../../../*
+
+# Node / JS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+.build/
+.cache/
+.expo/
+.expo-shared/
+.expo/*
+.expo*/**
+
+# Expo / Android / iOS build junk
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/build/
+ios/Pods/
+ios/build/
+
+# Web build output
+web/dist/
+web/.vite/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
