@@ -263,7 +263,19 @@ export default function RealtimeInterview() {
 
       if (!realtimeRes.ok) {
         const errorText = await realtimeRes.text()
-        throw new Error(`Realtime API error ${realtimeRes.status}: ${errorText}`)
+        
+        // Handle specific error cases with user-friendly messages
+        if (realtimeRes.status === 503) {
+          throw new Error('The AI service is temporarily unavailable. This usually means you\'ve run out of tokens or the service is overloaded. Please try again in a few moments or check your token balance.')
+        } else if (realtimeRes.status === 401) {
+          throw new Error('Authentication failed. Please refresh the page and try again.')
+        } else if (realtimeRes.status === 429) {
+          throw new Error('Rate limit exceeded. Please wait a moment before trying again.')
+        } else if (realtimeRes.status === 400) {
+          throw new Error('Invalid request. Please check your settings and try again.')
+        } else {
+          throw new Error(`Connection failed (Error ${realtimeRes.status}). Please try again or contact support if the issue persists.`)
+        }
       }
 
       const answerSdp = await realtimeRes.text()
@@ -373,8 +385,36 @@ export default function RealtimeInterview() {
 
       {/* Error Display */}
       {errorMsg && (
-        <div className="p-3 bg-error/10 border border-error/20 rounded-md text-error text-sm">
-          {errorMsg}
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">Connection Error</h3>
+              <p className="text-sm text-red-700 dark:text-red-300">{errorMsg}</p>
+              {errorMsg.includes('tokens') && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => window.location.href = '/plans'}
+                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-800 dark:text-red-200 bg-red-100 dark:bg-red-800/30 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors"
+                  >
+                    Get More Tokens
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setErrorMsg('')}
+              className="flex-shrink-0 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
@@ -414,6 +454,21 @@ export default function RealtimeInterview() {
       {!user && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-yellow-800">Please sign in to use the Realtime NailIT Interview.</p>
+        </div>
+      )}
+
+      {/* Token Warning Banner */}
+      {user && tokenBalance !== null && tokenBalance < 1.5 && (
+        <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-200">
+          <div className="flex items-center justify-between">
+            <span>You have {tokenBalance} tokens. You need at least 1.5 tokens to use realtime features.</span>
+            <button
+              className="ml-2 underline hover:opacity-80 text-amber-200"
+              onClick={() => window.location.href = '/plans'}
+            >
+              Go to Plans
+            </button>
+          </div>
         </div>
       )}
 

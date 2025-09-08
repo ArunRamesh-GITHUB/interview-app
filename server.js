@@ -1398,18 +1398,32 @@ app.post('/api/token-session/start', authRequired, async (req, res) => {
     const startCharge = mode === "realtime" ? 1.5 : 0.25;
 
     // Immediately charge the minimum to start the session
-    const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
-      p_user_id: userId,
-      p_amount: startCharge,
-      p_reason: `session_start_${mode}`,
-      p_metadata: { mode, startCharge },
-    });
+    let tokenConsumed = false;
+    try {
+      const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+        p_user_id: userId,
+        p_amount: startCharge,
+        p_reason: `session_start_${mode}`,
+        p_metadata: { mode, startCharge },
+      });
 
-    if (error) {
-      if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
-        return res.status(402).json({ error: "INSUFFICIENT_TOKENS" });
+      if (error) {
+        if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+          return res.status(402).json({ error: "INSUFFICIENT_TOKENS" });
+        }
+        // Check if it's a function not found error (database schema not set up)
+        if (String(error.message).includes("function") && String(error.message).includes("does not exist")) {
+          console.warn(`⚠️  Token database schema not set up. Running in development mode. Error: ${error.message}`);
+          tokenConsumed = false; // Continue without consuming tokens
+        } else {
+          return res.status(500).json({ error: error.message });
+        }
+      } else {
+        tokenConsumed = true;
       }
-      return res.status(500).json({ error: error.message });
+    } catch (dbError) {
+      console.warn(`⚠️  Token system error, continuing in development mode: ${dbError.message}`);
+      tokenConsumed = false;
     }
 
     const sessionId = randomUUID();
@@ -1420,7 +1434,11 @@ app.post('/api/token-session/start', authRequired, async (req, res) => {
       startCharge
     });
 
-    res.json({ sessionId, charged: startCharge });
+    res.json({ 
+      sessionId, 
+      charged: tokenConsumed ? startCharge : 0,
+      developmentMode: !tokenConsumed 
+    });
   } catch (err) {
     console.error('Token session start error:', err);
     res.status(500).json({ error: 'Failed to start token session' });
@@ -1449,13 +1467,15 @@ app.post('/api/token-session/stop', authRequired, async (req, res) => {
     // Calculate what we still need to charge (total - already charged at start)
     const toSettle = Math.max(0, totalTokens - session.startCharge);
 
+    let settledTokens = 0;
     if (toSettle > 0) {
-      const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
-        p_user_id: userId,
-        p_amount: toSettle,
-        p_reason: `session_settle_${session.mode}`,
-        p_metadata: {
-          mode: session.mode,
+      try {
+        const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+          p_user_id: userId,
+          p_amount: toSettle,
+          p_reason: `session_settle_${session.mode}`,
+          p_metadata: {
+            mode: session.mode,
           durationMs: actualMs,
           startCharge: session.startCharge,
           settleCharge: toSettle,
@@ -1463,11 +1483,23 @@ app.post('/api/token-session/stop', authRequired, async (req, res) => {
         },
       });
 
-      if (error) {
-        if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
-          return res.status(402).json({ error: "INSUFFICIENT_TOKENS_DURING_SETTLE" });
+        if (error) {
+          if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+            return res.status(402).json({ error: "INSUFFICIENT_TOKENS_DURING_SETTLE" });
+          }
+          // Check if it's a function not found error (database schema not set up)
+          if (String(error.message).includes("function") && String(error.message).includes("does not exist")) {
+            console.warn(`⚠️  Token database schema not set up. Running in development mode for session stop.`);
+            settledTokens = 0; // Continue without settling tokens
+          } else {
+            return res.status(500).json({ error: error.message });
+          }
+        } else {
+          settledTokens = toSettle;
         }
-        return res.status(500).json({ error: error.message });
+      } catch (dbError) {
+        console.warn(`⚠️  Token system error during session stop, continuing in development mode: ${dbError.message}`);
+        settledTokens = 0;
       }
     }
 

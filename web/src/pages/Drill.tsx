@@ -167,8 +167,8 @@ export default function Drill(){
   function stopRecording(){
     try { recRef.current?.stop(); setLoading('thinking') } catch {}
     stopBrowserSTT()
-    // Stop token metering
-    meter.stop()
+    // Don't stop token metering here - it's needed for transcription
+    // Metering will be stopped after successful transcription or on error
   }
 
   // --- STT + scoring flow for audio ---
@@ -201,10 +201,16 @@ export default function Drill(){
       // Clear live preview after successful processing
       setLivePreview('')
       setLoading('idle')
+      
+      // Stop token metering after successful transcription
+      meter.stop()
     } catch (e: any) {
       const text = e?.message || 'Transcription/scoring failed'
       setMsg(text.includes('Unexpected field') ? 'Upload failed: server expected a field named "audio".' : text)
       setLoading('idle')
+      
+      // Stop token metering on error
+      meter.stop()
     }
   }
 
@@ -283,6 +289,21 @@ export default function Drill(){
       activeNavId="drill"
       showFilters={false}
     >
+      {/* Token Warning Banner */}
+      {tokenBalance !== null && tokenBalance < 0.25 && (
+        <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-200">
+          <div className="flex items-center justify-between">
+            <span>You have 0 tokens. Buy tokens to use this feature.</span>
+            <button
+              className="ml-2 underline hover:opacity-80 text-amber-200"
+              onClick={() => window.location.href = '/plans'}
+            >
+              Go to Plans
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4 mt-4">
         {/* Question Section */}
         <div className="bg-card rounded-xl border border-divider p-4 shadow-level-1">

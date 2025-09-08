@@ -307,9 +307,9 @@ export default function LiveInterview(){
       audioRef.current = audio
       await audio.play()
     } catch (e: any) {
-      if (e?.message === 'No active token session') {
-        setShowOutOfTokensModal(true)
-      }
+      console.error('TTS Error:', e)
+      // Don't show the raw error message, just a user-friendly one
+      setMsg('Unable to play audio. Please check your connection and try again.')
     }
   }
 
@@ -349,11 +349,23 @@ export default function LiveInterview(){
     }
     
     try {
-      // Start token session before opening microphone
-      if (!tokenSession.isActive()) {
-        await tokenSession.start()
-        await refreshTokenBalance()
+      // Clear any error messages from previous attempts
+      setMsg('')
+      
+      // Ensure we have a fresh token session before opening microphone
+      if (tokenSession.isActive()) {
+        // Stop any existing session first to start fresh
+        try {
+          await tokenSession.stop()
+        } catch (e) {
+          // Ignore errors when stopping (session might be invalid)
+          console.warn('Failed to stop existing session:', e)
+        }
       }
+      
+      // Start a new token session
+      await tokenSession.start()
+      await refreshTokenBalance()
       
       const stream = await getMicStream()
       const mime = pickRecorderMime()
@@ -371,8 +383,23 @@ export default function LiveInterview(){
         setShowOutOfTokensModal(true)
         return
       }
-      setMsg(e?.message || 'Microphone blocked')
+      // Show user-friendly error message
+      const errorMsg = e?.message || 'Microphone blocked'
+      if (errorMsg.includes('INVALID_SESSION') || errorMsg.includes('NO_ACTIVE_SESSION')) {
+        setMsg('Session expired. Please try recording again.')
+      } else {
+        setMsg(errorMsg === 'Microphone blocked' ? 'Microphone access was denied. Please allow microphone access and try again.' : errorMsg)
+      }
       setStatus('idle')
+      
+      // Clean up session on error
+      if (tokenSession.isActive()) {
+        try {
+          await tokenSession.stop()
+        } catch (stopError) {
+          console.warn('Failed to stop session after error:', stopError)
+        }
+      }
     }
   }
   
@@ -382,11 +409,8 @@ export default function LiveInterview(){
     } catch {} 
     stopBrowserSTT()
     
-    // Stop token session when recording ends
-    if (tokenSession.isActive()) {
-      await tokenSession.stop()
-      await refreshTokenBalance()
-    }
+    // Don't stop token session here - it's needed for transcription
+    // Session will be stopped after successful transcription or on error
   }
 
   function answeredRounds() {
@@ -608,8 +632,18 @@ export default function LiveInterview(){
 
         setLivePreview('')
         setStatus('idle')
-  // keep scoringStatus as 'processing' until detailed results arrive
-  setViewIndex(current)
+        // keep scoringStatus as 'processing' until detailed results arrive
+        setViewIndex(current)
+        
+        // Stop token session after successful transcription
+        if (tokenSession.isActive()) {
+          try {
+            await tokenSession.stop()
+            await refreshTokenBalance()
+          } catch (e) {
+            console.warn('Failed to stop token session after transcription:', e)
+          }
+        }
 
         if (autoMode) {
           setTimeout(() => {
@@ -618,7 +652,32 @@ export default function LiveInterview(){
           }, 200)
         }
       } catch (e: any) {
-        setMsg(e?.message || 'Transcribe failed'); setStatus('idle'); setScoringStatus('idle')
+        console.error('Transcription error:', e)
+        
+        // Handle specific error cases
+        let errorMessage = 'Transcription failed'
+        if (e?.message?.includes('INVALID_SESSION') || e?.message?.includes('NO_ACTIVE_SESSION')) {
+          errorMessage = 'Your session expired. Please try recording again.'
+          // Clean up the invalid session
+          if (tokenSession.isActive()) {
+            try {
+              await tokenSession.stop()
+            } catch (stopError) {
+              console.warn('Failed to stop invalid session:', stopError)
+            }
+          }
+        } else if (e?.message === 'INSUFFICIENT_TOKENS') {
+          setShowOutOfTokensModal(true)
+          setStatus('idle')
+          setScoringStatus('idle')
+          return
+        } else if (e?.message) {
+          errorMessage = e.message
+        }
+        
+        setMsg(errorMessage)
+        setStatus('idle')
+        setScoringStatus('idle')
       }
     })()
   }
@@ -658,6 +717,18 @@ export default function LiveInterview(){
     if (allAnswered) { setFinished(true); maybeWarmOverall(true) }
   }, [queue, rounds])
 
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      // Clean up token session on unmount
+      if (tokenSession.isActive()) {
+        tokenSession.stop().catch(e => {
+          console.warn('Failed to stop token session on unmount:', e)
+        })
+      }
+    }
+  }, [tokenSession])
+
   // Swipe for review
   function prevAnsweredIndex(from: number) { for (let i=Math.max(0, from-1); i>=0; i--) if (rounds[i]?.scoring) return i; return from }
   function nextAnsweredIndex(from: number) { for (let i=Math.min(queue.length-1, from+1); i<queue.length; i++) if (rounds[i]?.scoring) return i; return from }
@@ -670,6 +741,21 @@ export default function LiveInterview(){
           <div className="flex items-center justify-between">
             <div className="text-xl font-semibold">Live Interview</div>
           </div>
+
+          {/* Token Warning Banner */}
+          {tokenBalance !== null && tokenBalance < 0.25 && (
+            <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-amber-200">
+              <div className="flex items-center justify-between">
+                <span>You have 0 tokens. Buy tokens to use this feature.</span>
+                <button
+                  className="ml-2 underline hover:opacity-80 text-amber-200"
+                  onClick={() => window.location.href = '/plans'}
+                >
+                  Go to Plans
+                </button>
+              </div>
+            </div>
+          )}
 
         {/* Interview Settings Panel */}
         <InterviewSettings
@@ -719,7 +805,46 @@ export default function LiveInterview(){
           )}
         </div>
 
-        {msg && <div className="text-sm text-red-600">{msg}</div>}
+        {msg && (
+          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">Error</h3>
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  {msg === '{"error":"INVALID_SESSION"}' 
+                    ? 'Please start recording first to activate your session, or refresh the page if the issue persists.'
+                    : msg === 'Microphone blocked' 
+                    ? 'Microphone access was denied. Please allow microphone access in your browser settings and try again.'
+                    : msg
+                  }
+                </p>
+                {(msg.includes('token') || msg === '{"error":"INVALID_SESSION"}') && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => window.location.href = '/plans'}
+                      className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-red-800 dark:text-red-200 bg-red-100 dark:bg-red-800/30 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-200 dark:hover:bg-red-800/50 transition-colors"
+                    >
+                      Get More Tokens
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setMsg('')}
+                className="flex-shrink-0 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Question Queue - Horizontal Swipe */}
         <div>
