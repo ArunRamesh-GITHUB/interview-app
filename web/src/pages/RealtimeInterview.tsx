@@ -510,7 +510,7 @@ export default function RealtimeInterview() {
             <div className="flex gap-1 sm:gap-2 flex-wrap items-center">
               <Button
                 onClick={connect}
-                disabled={status !== 'idle' || !user || (persona === 'oxbridge' && !subject) || (balance !== null && balance < 1.5)}
+                disabled={status !== 'idle' || !user || (persona === 'oxbridge' && !subject) || (tokenBalance !== null && tokenBalance < 1.5)}
                 className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-4"
               >
                 Connect

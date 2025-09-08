@@ -270,7 +270,7 @@ export default function Drill(){
                 variant="primary" 
                 className="!text-white w-full sm:min-w-[140px] sm:w-auto" 
                 onClick={startRecording}
-                disabled={meter.coolingDown || (balance !== null && balance < 0.25)}
+                disabled={meter.coolingDown || (tokenBalance !== null && tokenBalance < 0.25)}
               >
                 <Mic size={16} className="mr-2" />
                 Record Answer
@@ -294,9 +294,9 @@ export default function Drill(){
                   CV: Off
                 </Badge>
               )}
-              {balance !== null && (
+              {tokenBalance !== null && (
                 <Badge variant="outline" className="px-2 py-1 text-xs">
-                  Tokens: {balance.toFixed(1)}
+                  Tokens: {tokenBalance.toFixed(1)}
                 </Badge>
               )}
               <Button variant="primary" size="sm" onClick={() => scoreText()}>

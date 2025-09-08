@@ -13,14 +13,14 @@ export interface TokenBalance {
 }
 
 export function useTokenBalance() {
-  const [balance, setBalance] = useState<TokenBalance | null>(null)
+  const [tokenData, setTokenData] = useState<TokenBalance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { user } = useAuth()
 
   const fetchBalance = async () => {
     if (!user) {
-      setBalance(null)
+      setTokenData(null)
       setLoading(false)
       return
     }
@@ -34,7 +34,7 @@ export function useTokenBalance() {
       if (!response.ok) {
         // If it's a 404 or 500, the token system might not be set up yet
         if (response.status === 404 || response.status === 500) {
-          setBalance({ 
+          setTokenData({ 
             balanceTokens: 0, 
             rules: {
               TOKEN_PER_PRACTICE_MIN: 1,
@@ -51,13 +51,13 @@ export function useTokenBalance() {
       }
 
       const data = await response.json()
-      setBalance(data)
+      setTokenData(data)
       setError(null)
     } catch (err) {
       console.error('Token balance fetch error:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
       // Fallback to 0 balance on error
-      setBalance({ 
+      setTokenData({ 
         balanceTokens: 0, 
         rules: {
           TOKEN_PER_PRACTICE_MIN: 1,
@@ -81,8 +81,8 @@ export function useTokenBalance() {
   }
 
   return {
-    balance: balance?.balanceTokens ?? 0,
-    rules: balance?.rules,
+    balance: tokenData?.balanceTokens ?? 0,
+    rules: tokenData?.rules,
     loading,
     error,
     refetch,
