@@ -4,6 +4,9 @@ import { useAuth } from '../lib/auth'
 import { PersonaKey, OxbridgeSubject, PERSONA_CONFIGS, OXBRIDGE_SUBJECTS, buildInstructions } from '../lib/personas'
 import { RealtimeQuestionBankManager, RealtimePersonaKey, RealtimeOxbridgeSubject } from '../lib/realtimeQuestionBank'
 import { RealtimeQuestionBankManagerComponent } from '../components/ui/realtime-question-bank-manager'
+import { TokenSessionManager, fetchTokenBalance } from '../lib/tokenSession'
+import { OutOfTokensModal } from '../components/ui/OutOfTokensModal'
+import { Badge } from '../components/ui/badge'
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error'
 
@@ -22,6 +25,27 @@ export default function RealtimeInterview() {
   const [timeRemaining, setTimeRemaining] = React.useState<number | null>(null)
   const [timerInterval, setTimerInterval] = React.useState<NodeJS.Timeout | null>(null)
   const [showQuestionManager, setShowQuestionManager] = React.useState<boolean>(false)
+
+  // Token session management
+  const [tokenSession] = React.useState(() => new TokenSessionManager("realtime"))
+  const [tokenBalance, setTokenBalance] = React.useState<number | null>(null)
+  const [showOutOfTokensModal, setShowOutOfTokensModal] = React.useState(false)
+
+  // Refresh token balance
+  const refreshTokenBalance = React.useCallback(async () => {
+    try {
+      const balance = await fetchTokenBalance()
+      setTokenBalance(balance)
+    } catch (error) {
+      console.error('Failed to fetch token balance:', error)
+      setTokenBalance(0)
+    }
+  }, [])
+
+  // Initialize token balance
+  React.useEffect(() => {
+    refreshTokenBalance()
+  }, [refreshTokenBalance])
 
   // Refs for WebRTC
   const pcRef = React.useRef<RTCPeerConnection | null>(null)
@@ -56,7 +80,17 @@ export default function RealtimeInterview() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 
-  const cleanup = () => {
+  const cleanup = async () => {
+    // Stop token session
+    if (tokenSession.isActive()) {
+      try {
+        await tokenSession.stop()
+        await refreshTokenBalance()
+      } catch (e) {
+        console.warn("Token session stop failed:", e)
+      }
+    }
+    
     // Clear timer
     if (timerInterval) {
       clearInterval(timerInterval)
@@ -96,6 +130,11 @@ export default function RealtimeInterview() {
     setErrorMsg('')
 
     try {
+      // Start token session before connecting
+      if (!tokenSession.isActive()) {
+        await tokenSession.start()
+        await refreshTokenBalance()
+      }
       // 1. Get ephemeral token
       const voice = persona ? PERSONA_CONFIGS[persona].voiceDefault || 'alloy' : 'alloy'
       const finalInstructions = persona ? buildInstructions(persona, subject || undefined, enableRating) : instructions
@@ -103,7 +142,10 @@ export default function RealtimeInterview() {
       const sessionRes = await fetch('/api/realtime/session', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-token-session-id': tokenSession.getSessionId() || ''
+        },
         body: JSON.stringify({
           instructions: finalInstructions,
           voice
@@ -151,7 +193,7 @@ export default function RealtimeInterview() {
       const dc = pc.createDataChannel('oai-events')
       dcRef.current = dc
 
-      dc.onopen = () => {
+      dc.onopen = async () => {
         primedRef.current = false
         
         const finalInstructions = persona ? buildInstructions(persona, subject || undefined, enableRating) : instructions
@@ -166,6 +208,14 @@ export default function RealtimeInterview() {
           }
         }
         dc.send(JSON.stringify(sessionUpdate))
+        
+        // Start token metering after successful connection
+        try {
+          await meter.start()
+        } catch (e) {
+          console.warn("Token metering failed to start:", e)
+          // Connection can continue even if metering fails
+        }
         
         setStatus('connected')
         startTimer()
@@ -214,14 +264,19 @@ export default function RealtimeInterview() {
       })
 
     } catch (error: any) {
-      setErrorMsg(error.message)
-      setStatus('error')
-      cleanup()
+      if (error?.message === 'INSUFFICIENT_TOKENS') {
+        setShowOutOfTokensModal(true)
+        setStatus('idle')
+      } else {
+        setErrorMsg(error.message)
+        setStatus('error')
+      }
+      cleanup().catch(console.error)
     }
   }
 
   const disconnect = () => {
-    cleanup()
+    cleanup().catch(console.error)
   }
 
   const sendFirstQuestion = () => {
@@ -455,11 +510,17 @@ export default function RealtimeInterview() {
             <div className="flex gap-1 sm:gap-2 flex-wrap items-center">
               <Button
                 onClick={connect}
-                disabled={status !== 'idle' || !user || (persona === 'oxbridge' && !subject)}
+                disabled={status !== 'idle' || !user || (persona === 'oxbridge' && !subject) || (balance !== null && balance < 1.5)}
                 className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-4"
               >
                 Connect
               </Button>
+              
+              {tokenBalance !== null && (
+                <Badge variant="outline" className="px-2 py-1 text-xs">
+                  Tokens: {tokenBalance?.toFixed(1) || '0.0'}
+                </Badge>
+              )}
               
               {status === 'connected' && (
                 <>
@@ -547,6 +608,13 @@ export default function RealtimeInterview() {
         onClose={() => setShowQuestionManager(false)}
         currentPersona={persona as RealtimePersonaKey | null}
         currentSubject={subject as RealtimeOxbridgeSubject | null}
+      />
+
+      {/* Out of Tokens Modal */}
+      <OutOfTokensModal
+        open={showOutOfTokensModal}
+        onClose={() => setShowOutOfTokensModal(false)}
+        currentBalance={tokenBalance || 0}
       />
     </div>
   )

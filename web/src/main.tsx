@@ -7,6 +7,7 @@ import './styles/animations.css'
 import './styles.css'
 
 import { AuthProvider } from './lib/auth'
+import { TokenProvider } from './tokens/TokenProvider'
 import { ThemeProvider } from './components/ui/ThemeProvider'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import AppShell from './shell/App'
@@ -86,7 +87,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <TokenProvider>
+          <RouterProvider router={router} />
+        </TokenProvider>
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>

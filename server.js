@@ -826,7 +826,7 @@ Use clear structure. If CV/context is provided, tailor appropriately. Return pla
 }
 
 // ---------- API: SCORE / MODEL ANSWER ----------
-app.post('/api/score', strictLimiter, async (req, res) => {
+app.post('/api/score', strictLimiter, requireActiveTokenSession, async (req, res) => {
   try {
     const { question, answer, cvText } = req.body || {}
     if (!question || !answer) {return res.status(400).json({ error: 'question and answer required' })}
@@ -845,7 +845,7 @@ app.post('/api/score', strictLimiter, async (req, res) => {
   }
 })
 
-app.post('/api/model-answer', strictLimiter, async (req, res) => {
+app.post('/api/model-answer', strictLimiter, requireActiveTokenSession, async (req, res) => {
   try {
     const { question, cvText } = req.body || {}
     if (!question) {return res.status(400).json({ error: 'question required' })}
@@ -918,7 +918,7 @@ app.get('/api/tts11', strictLimiter, async (req, res) => {
 })
 
 // ---------- FAST TRANSCRIBE (IMMEDIATE RESPONSE) + SCORE ----------
-app.post('/api/transcribe-fast', strictLimiter, upload.single('audio'), async (req, res) => {
+app.post('/api/transcribe-fast', strictLimiter, requireActiveTokenSession, upload.single('audio'), async (req, res) => {
   try {
     const file = req.file
     const question = (req.body?.question || '').toString()
@@ -1042,7 +1042,7 @@ app.get('/api/detailed-results/:processingId', lightLimiter, async (req, res) =>
 })
 
 // ---------- TRANSCRIBE + SCORE (LEGACY - FULL PROCESSING) ----------
-app.post('/api/transcribe', strictLimiter, upload.single('audio'), async (req, res) => {
+app.post('/api/transcribe', strictLimiter, requireActiveTokenSession, upload.single('audio'), async (req, res) => {
   try {
     const file = req.file
     const question = (req.body?.question || '').toString()
@@ -1243,8 +1243,8 @@ async function createRealtimeSession(req, res) {
   }
 }
 
-app.post('/api/realtime/session', createRealtimeSession)
-app.post('/realtime/session', createRealtimeSession)
+app.post('/api/realtime/session', requireActiveTokenSession, createRealtimeSession)
+app.post('/realtime/session', requireActiveTokenSession, createRealtimeSession)
 
 // ---------- Realtime Function Calls ----------
 async function handleRealtimeFunctionCall(req, res) {
@@ -1302,6 +1302,9 @@ async function handleRealtimeFunctionCall(req, res) {
 }
 
 app.post('/api/realtime/function-call', handleRealtimeFunctionCall)
+
+// ==================== METERING ROUTES ====================
+// Note: Using existing token consumption endpoints instead of custom routes
 
 // ==================== TOKEN SYSTEM ROUTES ====================
 
@@ -1381,6 +1384,152 @@ app.post('/api/tokens/consume', authRequired, async (req, res) => {
     res.status(500).json({ error: 'Failed to consume tokens' });
   }
 });
+
+// Token session management for proper gating
+const inMemoryTokenSessions = new Map(); // sessionId -> { userId, mode, startedAt, startCharge }
+
+// POST /api/token-session/start
+app.post('/api/token-session/start', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const { mode = "practice" } = req.body;
+
+    // Minimum start charge based on mode
+    const startCharge = mode === "realtime" ? 1.5 : 0.25;
+
+    // Immediately charge the minimum to start the session
+    const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+      p_user_id: userId,
+      p_amount: startCharge,
+      p_reason: `session_start_${mode}`,
+      p_metadata: { mode, startCharge },
+    });
+
+    if (error) {
+      if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+        return res.status(402).json({ error: "INSUFFICIENT_TOKENS" });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+
+    const sessionId = randomUUID();
+    inMemoryTokenSessions.set(sessionId, {
+      userId,
+      mode,
+      startedAt: Date.now(),
+      startCharge
+    });
+
+    res.json({ sessionId, charged: startCharge });
+  } catch (err) {
+    console.error('Token session start error:', err);
+    res.status(500).json({ error: 'Failed to start token session' });
+  }
+});
+
+// POST /api/token-session/stop
+app.post('/api/token-session/stop', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const { sessionId, durationMs } = req.body;
+    
+    const session = inMemoryTokenSessions.get(sessionId);
+    if (!session || session.userId !== userId) {
+      return res.status(400).json({ error: "INVALID_SESSION" });
+    }
+
+    const actualMs = Math.max(0, Number(durationMs ?? (Date.now() - session.startedAt)));
+    const actualSeconds = Math.floor(actualMs / 1000);
+    
+    // Calculate total tokens needed for this session
+    const totalTokens = session.mode === "realtime"
+      ? realtimeSecondsToTokens(actualSeconds)
+      : practiceSecondsToTokens(actualSeconds);
+
+    // Calculate what we still need to charge (total - already charged at start)
+    const toSettle = Math.max(0, totalTokens - session.startCharge);
+
+    if (toSettle > 0) {
+      const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+        p_user_id: userId,
+        p_amount: toSettle,
+        p_reason: `session_settle_${session.mode}`,
+        p_metadata: {
+          mode: session.mode,
+          durationMs: actualMs,
+          startCharge: session.startCharge,
+          settleCharge: toSettle,
+          totalTokens
+        },
+      });
+
+      if (error) {
+        if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+          return res.status(402).json({ error: "INSUFFICIENT_TOKENS_DURING_SETTLE" });
+        }
+        return res.status(500).json({ error: error.message });
+      }
+    }
+
+    inMemoryTokenSessions.delete(sessionId);
+    res.json({ totalTokens, settledNow: toSettle });
+  } catch (err) {
+    console.error('Token session stop error:', err);
+    res.status(500).json({ error: 'Failed to stop token session' });
+  }
+});
+
+// POST /api/tokens/ensure - Check if user has enough tokens before starting
+app.post('/api/tokens/ensure', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const { min } = req.body;
+    
+    const { data, error } = await sbAdmin
+      .from("user_wallets")
+      .select("balance_tokens")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    const balance = Number(data?.balance_tokens ?? 0);
+    
+    if (balance < Number(min || 0)) {
+      return res.status(402).json({
+        error: "INSUFFICIENT_TOKENS",
+        balance,
+        required: Number(min || 0)
+      });
+    }
+    
+    res.json({ ok: true, balance });
+  } catch (err) {
+    console.error('Token ensure error:', err);
+    res.status(500).json({ error: 'Failed to ensure tokens' });
+  }
+});
+
+// Middleware to require active token session for costly operations
+function requireActiveTokenSession(req, res, next) {
+  const sessionId = req.header("x-token-session-id");
+  if (!sessionId) {
+    return res.status(401).json({ error: "NO_ACTIVE_SESSION" });
+  }
+  
+  const session = inMemoryTokenSessions.get(sessionId);
+  if (!session) {
+    return res.status(401).json({ error: "INVALID_SESSION" });
+  }
+  
+  const userId = currentUser(req)?.id;
+  if (!userId || session.userId !== userId) {
+    return res.status(401).json({ error: "SESSION_USER_MISMATCH" });
+  }
+  
+  // Attach session info to request for potential use
+  req.tokenSession = session;
+  next();
+}
 
 // Optional: session reservation (pre-auth) for realtime
 // POST /api/realtime/start { estimateSeconds } -> returns reserved tokens

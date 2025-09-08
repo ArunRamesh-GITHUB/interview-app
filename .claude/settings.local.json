@@ -93,7 +93,12 @@
       "Bash(git submodule:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npm run typecheck:*)",
+      "Bash(curl:*)",
+      "Bash(cmd /c:*)",
+      "Bash(pkill:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

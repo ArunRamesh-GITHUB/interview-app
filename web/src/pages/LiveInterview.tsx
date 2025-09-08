@@ -4,11 +4,14 @@ import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { LoadingOverlay, Spinner } from '../components/ui/spinner'
 import { api, Scoring } from '../lib/utils'
+import { createApiWithTokens } from '../lib/apiWithTokens'
 import { prepareOverall, pollOverall } from '../lib/overall'
 import { useAuth } from '../lib/auth'
 import { QuestionBankManager, PersonaKey, OxbridgeSubject } from '../lib/questionBank'
 import { QuestionBankManagerComponent } from '../components/ui/question-bank-manager'
 import { getMicStream, pickRecorderMime, pickFileExt } from '../lib/mic'
+import { TokenSessionManager, fetchTokenBalance } from '../lib/tokenSession'
+import { OutOfTokensModal } from '../components/ui/OutOfTokensModal'
 
 const OXBRIDGE_SUBJECTS: OxbridgeSubject[] = [
   'Engineering','Mathematics','Computer Science','Natural Sciences (Physics)',
@@ -206,6 +209,33 @@ export default function LiveInterview(){
   const [autoMode, setAutoMode] = React.useState<boolean>(false)
   const [msg, setMsg] = React.useState<string>('')
 
+  // Token session management
+  const [tokenSession] = React.useState(() => new TokenSessionManager("practice"))
+  const [tokenBalance, setTokenBalance] = React.useState<number | null>(null)
+  const [showOutOfTokensModal, setShowOutOfTokensModal] = React.useState(false)
+  
+  // Create API instance with token session support
+  const tokenApi = React.useMemo(() => 
+    createApiWithTokens(() => tokenSession.getSessionId()), 
+    [tokenSession]
+  )
+
+  // Refresh token balance
+  const refreshTokenBalance = React.useCallback(async () => {
+    try {
+      const balance = await fetchTokenBalance()
+      setTokenBalance(balance)
+    } catch (error) {
+      console.error('Failed to fetch token balance:', error)
+      setTokenBalance(0)
+    }
+  }, [])
+
+  // Initialize token balance
+  React.useEffect(() => {
+    refreshTokenBalance()
+  }, [refreshTokenBalance])
+
   // Question bank manager
   const [showQuestionManager, setShowQuestionManager] = React.useState<boolean>(false)
 
@@ -263,6 +293,8 @@ export default function LiveInterview(){
         audioRef.current.currentTime = 0
       }
       
+      // Always use regular API for question reading - this should be free
+      // Token sessions are only for recording/transcription/scoring
       const b = await api.tts(q)
       const u = URL.createObjectURL(b)
       const audio = new Audio(u)
@@ -270,7 +302,11 @@ export default function LiveInterview(){
       audio.autoplay = true
       audioRef.current = audio
       await audio.play()
-    } catch {}
+    } catch (e: any) {
+      if (e?.message === 'No active token session') {
+        setShowOutOfTokensModal(true)
+      }
+    }
   }
 
   // Browser live STT (preview)
@@ -304,6 +340,12 @@ export default function LiveInterview(){
 
   async function startRecording(){
     try {
+      // Start token session before opening microphone
+      if (!tokenSession.isActive()) {
+        await tokenSession.start()
+        await refreshTokenBalance()
+      }
+      
       const stream = await getMicStream()
       const mime = pickRecorderMime()
       const rec = mime
@@ -315,9 +357,28 @@ export default function LiveInterview(){
       startBrowserSTT()
       rec.start()
       setStatus('recording')
-    } catch (e: any) { setMsg(e?.message || 'Microphone blocked'); setStatus('idle') }
+    } catch (e: any) { 
+      if (e?.message === 'INSUFFICIENT_TOKENS') {
+        setShowOutOfTokensModal(true)
+        return
+      }
+      setMsg(e?.message || 'Microphone blocked')
+      setStatus('idle')
+    }
   }
-  function stopRecording(){ try { recRef.current?.stop() } catch {} stopBrowserSTT() }
+  
+  async function stopRecording(){ 
+    try { 
+      recRef.current?.stop() 
+    } catch {} 
+    stopBrowserSTT()
+    
+    // Stop token session when recording ends
+    if (tokenSession.isActive()) {
+      await tokenSession.stop()
+      await refreshTokenBalance()
+    }
+  }
 
   function answeredRounds() {
     return queue.map((q, i) => ({ i, q, r: rounds[i] }))
@@ -487,7 +548,7 @@ export default function LiveInterview(){
         if (persona === 'apprenticeship') cv += `\n[Interviewer persona: DEGREE APPRENTICESHIP]`
         if (cv) form.append('cvText', cv)
 
-        const result = await api.transcribeFast(form) // returns transcript + immediate scoring with follow-ups
+        const result = await tokenApi.transcribeFast(form) // returns transcript + immediate scoring with follow-ups
         const isImmediate = (result as any)?.immediate || false
         const processingId = (result as any)?.processingId || null
         const round: Round = {
@@ -628,10 +689,25 @@ export default function LiveInterview(){
           <Button onClick={start} disabled={!queue.length || status!=='idle'}>Start / Next</Button>
           {status==='recording'
             ? <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={stopRecording}>Stop</Button>
-            : <Button onClick={startRecording} disabled={current<0}>Record</Button>}
+            : <Button 
+                onClick={startRecording} 
+                disabled={current < 0 || (tokenBalance !== null && tokenBalance < 0.25)}
+              >
+                Record
+              </Button>}
           <Button variant="outline" onClick={finishNow} disabled={!answeredRounds().length}>
             Finish now
           </Button>
+          {tokenBalance !== null && (
+            <Badge variant="outline" className="px-2 py-1 text-xs">
+              Tokens: {tokenBalance.toFixed(1)}
+            </Badge>
+          )}
+          {tokenSession.isActive() && (
+            <Badge variant="outline" className="px-2 py-1 text-xs text-green-600">
+              Session Active
+            </Badge>
+          )}
         </div>
 
         {msg && <div className="text-sm text-red-600">{msg}</div>}
@@ -962,6 +1038,13 @@ export default function LiveInterview(){
         }}
         currentPersona={persona}
         currentSubject={subject}
+      />
+
+      {/* Out of Tokens Modal */}
+      <OutOfTokensModal
+        open={showOutOfTokensModal}
+        onClose={() => setShowOutOfTokensModal(false)}
+        currentBalance={tokenBalance || 0}
       />
     </div>
   )

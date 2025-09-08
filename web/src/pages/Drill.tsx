@@ -8,6 +8,9 @@ import { api, Scoring } from '../lib/utils'
 import { CoursesLayout } from '../layouts'
 import { Home as HomeIcon, Mic, Archive, BookOpen, CreditCard, Shuffle, Volume2, Play, Square } from 'lucide-react'
 import { getMicStream, pickRecorderMime, pickFileExt } from '../lib/mic'
+import { TokenSessionManager, fetchTokenBalance } from '../lib/tokenSession'
+import { OutOfTokensModal } from '../components/ui/OutOfTokensModal'
+import { createApiWithTokens } from '../lib/apiWithTokens'
 
 const DRILL_BANK = [
   'Tell me about yourself.',
@@ -31,6 +34,33 @@ export default function Drill(){
   // Live transcription preview
   const [livePreview, setLivePreview] = React.useState<string>('')
   const srRef = React.useRef<any>(null)
+
+  // Token session management
+  const [tokenSession] = React.useState(() => new TokenSessionManager("practice"))
+  const [tokenBalance, setTokenBalance] = React.useState<number | null>(null)
+  const [showOutOfTokensModal, setShowOutOfTokensModal] = React.useState(false)
+  
+  // Create API instance with token session support
+  const tokenApi = React.useMemo(() => 
+    createApiWithTokens(() => tokenSession.getSessionId()), 
+    [tokenSession]
+  )
+
+  // Refresh token balance
+  const refreshTokenBalance = React.useCallback(async () => {
+    try {
+      const balance = await fetchTokenBalance()
+      setTokenBalance(balance)
+    } catch (error) {
+      console.error('Failed to fetch token balance:', error)
+      setTokenBalance(0)
+    }
+  }, [])
+
+  // Initialize token balance
+  React.useEffect(() => {
+    refreshTokenBalance()
+  }, [refreshTokenBalance])
 
   // Pull CV text if available (uploaded elsewhere in your app)
   const cvText = (typeof window !== 'undefined' && localStorage.getItem('cvText')) || ''
@@ -69,6 +99,9 @@ export default function Drill(){
     setModelAnswer('')
     setModelScore(null)
     try {
+      // Start token metering before opening microphone
+      await meter.start()
+      
       const stream = await getMicStream()
       const mime = pickRecorderMime()
       const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
@@ -95,6 +128,8 @@ export default function Drill(){
   function stopRecording(){
     try { recRef.current?.stop(); setLoading('thinking') } catch {}
     stopBrowserSTT()
+    // Stop token metering
+    meter.stop()
   }
 
   // --- STT + scoring flow for audio ---
@@ -231,7 +266,12 @@ export default function Drill(){
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
             {!recording ? (
-              <Button variant="primary" className="!text-white w-full sm:min-w-[140px] sm:w-auto" onClick={startRecording}>
+              <Button 
+                variant="primary" 
+                className="!text-white w-full sm:min-w-[140px] sm:w-auto" 
+                onClick={startRecording}
+                disabled={meter.coolingDown || (balance !== null && balance < 0.25)}
+              >
                 <Mic size={16} className="mr-2" />
                 Record Answer
               </Button>
@@ -241,8 +281,8 @@ export default function Drill(){
                 Stop Recording
               </Button>
             )}
-            <Badge variant={recording ? "destructive" : "secondary"} className="w-full sm:min-w-[120px] sm:w-auto px-6 py-3 text-center text-subtitle">
-              {recording ? 'Recording…' : 'Ready'}
+            <Badge variant={recording ? "destructive" : meter.coolingDown ? "outline" : "secondary"} className="w-full sm:min-w-[120px] sm:w-auto px-6 py-3 text-center text-subtitle">
+              {recording ? 'Recording…' : meter.coolingDown ? 'Cooling down…' : 'Ready'}
             </Badge>
             <div className="flex items-center gap-2 ml-auto">
               {cvText ? (
@@ -252,6 +292,11 @@ export default function Drill(){
               ) : (
                 <Badge variant="secondary" title="Upload your CV to personalize model answers">
                   CV: Off
+                </Badge>
+              )}
+              {balance !== null && (
+                <Badge variant="outline" className="px-2 py-1 text-xs">
+                  Tokens: {balance.toFixed(1)}
                 </Badge>
               )}
               <Button variant="primary" size="sm" onClick={() => scoreText()}>
