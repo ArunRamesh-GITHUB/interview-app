@@ -12,6 +12,7 @@ import { QuestionBankManagerComponent } from '../components/ui/question-bank-man
 import { getMicStream, pickRecorderMime, pickFileExt } from '../lib/mic'
 import { TokenSessionManager, fetchTokenBalance } from '../lib/tokenSession'
 import { OutOfTokensModal } from '../components/ui/OutOfTokensModal'
+import { useTokenGate } from '../lib/tokenValidation'
 
 const OXBRIDGE_SUBJECTS: OxbridgeSubject[] = [
   'Engineering','Mathematics','Computer Science','Natural Sciences (Physics)',
@@ -214,6 +215,9 @@ export default function LiveInterview(){
   const [tokenBalance, setTokenBalance] = React.useState<number | null>(null)
   const [showOutOfTokensModal, setShowOutOfTokensModal] = React.useState(false)
   
+  // Token gate for zero token validation
+  const { checkTokensOrShowModal, TokenGateModal } = useTokenGate()
+  
   // Create API instance with token session support
   const tokenApi = React.useMemo(() => 
     createApiWithTokens(() => tokenSession.getSessionId()), 
@@ -339,6 +343,11 @@ export default function LiveInterview(){
   }
 
   async function startRecording(){
+    // Check tokens before starting recording
+    if (!checkTokensOrShowModal(1)) {
+      return
+    }
+    
     try {
       // Start token session before opening microphone
       if (!tokenSession.isActive()) {
@@ -1046,6 +1055,9 @@ export default function LiveInterview(){
         onClose={() => setShowOutOfTokensModal(false)}
         currentBalance={tokenBalance || 0}
       />
+      
+      {/* Token Gate Modal */}
+      <TokenGateModal />
     </div>
   )
 }

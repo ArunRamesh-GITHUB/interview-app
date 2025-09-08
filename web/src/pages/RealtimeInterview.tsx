@@ -7,6 +7,7 @@ import { RealtimeQuestionBankManagerComponent } from '../components/ui/realtime-
 import { TokenSessionManager, fetchTokenBalance } from '../lib/tokenSession'
 import { OutOfTokensModal } from '../components/ui/OutOfTokensModal'
 import { Badge } from '../components/ui/badge'
+import { useTokenGate } from '../lib/tokenValidation'
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error'
 
@@ -30,6 +31,9 @@ export default function RealtimeInterview() {
   const [tokenSession] = React.useState(() => new TokenSessionManager("realtime"))
   const [tokenBalance, setTokenBalance] = React.useState<number | null>(null)
   const [showOutOfTokensModal, setShowOutOfTokensModal] = React.useState(false)
+  
+  // Token gate for zero token validation
+  const { checkTokensOrShowModal, TokenGateModal } = useTokenGate()
 
   // Refresh token balance
   const refreshTokenBalance = React.useCallback(async () => {
@@ -123,6 +127,11 @@ export default function RealtimeInterview() {
   const connect = async () => {
     if (!user) {
       setErrorMsg('Please sign in first')
+      return
+    }
+    
+    // Check tokens before connecting (realtime requires minimum 5 tokens)
+    if (!checkTokensOrShowModal(5)) {
       return
     }
 
@@ -616,6 +625,9 @@ export default function RealtimeInterview() {
         onClose={() => setShowOutOfTokensModal(false)}
         currentBalance={tokenBalance || 0}
       />
+      
+      {/* Token Gate Modal */}
+      <TokenGateModal />
     </div>
   )
 }

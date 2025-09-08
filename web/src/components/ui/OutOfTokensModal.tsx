@@ -12,7 +12,7 @@ export function OutOfTokensModal({ open, onClose, currentBalance = 0 }: OutOfTok
   const navigate = useNavigate();
 
   const handleUpgrade = () => {
-    navigate("/pricing");
+    navigate("/plans");
     onClose();
   };
 

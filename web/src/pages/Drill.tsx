@@ -11,6 +11,7 @@ import { getMicStream, pickRecorderMime, pickFileExt } from '../lib/mic'
 import { TokenSessionManager, fetchTokenBalance } from '../lib/tokenSession'
 import { OutOfTokensModal } from '../components/ui/OutOfTokensModal'
 import { createApiWithTokens } from '../lib/apiWithTokens'
+import { useTokenGate } from '../lib/tokenValidation'
 
 const DRILL_BANK = [
   'Tell me about yourself.',
@@ -39,6 +40,9 @@ export default function Drill(){
   const [tokenSession] = React.useState(() => new TokenSessionManager("practice"))
   const [tokenBalance, setTokenBalance] = React.useState<number | null>(null)
   const [showOutOfTokensModal, setShowOutOfTokensModal] = React.useState(false)
+  
+  // Token gate for zero token validation
+  const { checkTokensOrShowModal, TokenGateModal } = useTokenGate()
   
   // Create API instance with token session support
   const tokenApi = React.useMemo(() => 
@@ -92,6 +96,11 @@ export default function Drill(){
   function stopBrowserSTT() { try { srRef.current?.stop() } catch {} srRef.current = null }
 
   async function startRecording(){
+    // Check tokens before starting recording
+    if (!checkTokensOrShowModal(1)) {
+      return
+    }
+    
     setMsg('')
     setAudioURL('')
     setTranscript('')
@@ -171,6 +180,11 @@ export default function Drill(){
 
   // --- Strict scoring for typed text ---
   async function scoreText(ans?: string){
+    // Check tokens before scoring typed text
+    if (!checkTokensOrShowModal(1)) {
+      return
+    }
+    
     const answer = (ans ?? transcript) || ''
     if (!answer.trim()) return
     setMsg('')
@@ -408,6 +422,9 @@ export default function Drill(){
           </div>
         )}
       </div>
+      
+      {/* Token Gate Modal */}
+      <TokenGateModal />
     </CoursesLayout>
   )
 }
