@@ -16,6 +16,7 @@ import dotenv from 'dotenv'
 import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
+import { TOKEN_RULES, PLAN_TOKEN_GRANTS, practiceSecondsToTokens, realtimeSecondsToTokens } from './config/pricing.js'
 
 
 dotenv.config()
@@ -420,6 +421,13 @@ app.use(express.static(path.join(__dirname, 'public')))
 // ---------- Helpers ----------
 function authRequired(req, res, next) { if (req.session?.user?.id) {return next();} return res.status(401).json({ error: 'Not authenticated' }) }
 function currentUser(req) { return req.session?.user || null }
+function requireServer(req, res, next) {
+  const key = req.headers["x-internal-key"];
+  if (!key || key !== process.env.INTERNAL_SERVER_KEY) {
+    return res.status(401).json({ error: "Server-only endpoint" });
+  }
+  next();
+}
 function hashKey(s) { return crypto.createHash('sha1').update(s).digest('hex') }
 function safeJSON(s) { try { return JSON.parse(s) } catch { return null } }
 
@@ -1294,6 +1302,196 @@ async function handleRealtimeFunctionCall(req, res) {
 }
 
 app.post('/api/realtime/function-call', handleRealtimeFunctionCall)
+
+// ==================== TOKEN SYSTEM ROUTES ====================
+
+// GET /api/tokens/balance
+app.get('/api/tokens/balance', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+
+    const { data, error } = await sbAdmin
+      .from("user_wallets")
+      .select("balance_tokens")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    const balance = data?.balance_tokens ?? 0;
+    res.json({ balanceTokens: Number(balance), rules: TOKEN_RULES });
+  } catch (err) {
+    console.error('Token balance error:', err);
+    res.status(500).json({ error: 'Failed to get token balance' });
+  }
+});
+
+// POST /api/tokens/grant (server-only; used by webhooks)
+app.post('/api/tokens/grant', requireServer, async (req, res) => {
+  try {
+    const { userId, amount, reason, metadata } = req.body ?? {};
+    if (!userId || !amount || !reason) {
+      return res.status(400).json({ error: "userId, amount, reason required" });
+    }
+
+    const { data, error } = await sbAdmin.rpc("sp_grant_tokens", {
+      p_user_id: userId,
+      p_amount: amount,
+      p_reason: reason,
+      p_metadata: metadata ?? {},
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ newBalance: Number(data) });
+  } catch (err) {
+    console.error('Token grant error:', err);
+    res.status(500).json({ error: 'Failed to grant tokens' });
+  }
+});
+
+// POST /api/tokens/consume
+// body: { kind: "practice"|"realtime", seconds: number, metadata?: any }
+app.post('/api/tokens/consume', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const { kind, seconds, metadata } = req.body ?? {};
+    if (!kind || typeof seconds !== "number") {
+      return res.status(400).json({ error: "kind and seconds required" });
+    }
+
+    const tokens = kind === "realtime"
+      ? realtimeSecondsToTokens(seconds)
+      : practiceSecondsToTokens(seconds);
+
+    const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+      p_user_id: userId,
+      p_amount: tokens,
+      p_reason: `consume_${kind}`,
+      p_metadata: metadata ?? {},
+    });
+
+    if (error) {
+      if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+        return res.status(402).json({ error: "INSUFFICIENT_TOKENS" });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ consumedTokens: tokens, newBalance: Number(data) });
+  } catch (err) {
+    console.error('Token consume error:', err);
+    res.status(500).json({ error: 'Failed to consume tokens' });
+  }
+});
+
+// Optional: session reservation (pre-auth) for realtime
+// POST /api/realtime/start { estimateSeconds } -> returns reserved tokens
+app.post('/api/realtime/start', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const estimateSeconds = Math.max(10, Number(req.body?.estimateSeconds) || 60);
+    const tokens = realtimeSecondsToTokens(estimateSeconds);
+
+    const { data, error } = await sbAdmin.rpc("sp_consume_tokens", {
+      p_user_id: userId,
+      p_amount: tokens,
+      p_reason: "reserve_realtime",
+      p_metadata: { estimateSeconds },
+    });
+    if (error) {
+      if (String(error.message).includes("INSUFFICIENT_TOKENS")) {
+        return res.status(402).json({ error: "INSUFFICIENT_TOKENS" });
+      }
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ reservedTokens: tokens, reservationBalance: Number(data) });
+  } catch (err) {
+    console.error('Realtime start error:', err);
+    res.status(500).json({ error: 'Failed to start realtime session' });
+  }
+});
+
+// POST /api/realtime/finish { actualSeconds }
+app.post('/api/realtime/finish', authRequired, async (req, res) => {
+  try {
+    const userId = currentUser(req).id;
+    const actualSeconds = Math.max(10, Number(req.body?.actualSeconds) || 60);
+    const actualTokens = realtimeSecondsToTokens(actualSeconds);
+
+    // We reserved on start; now reconcile: if actual > reserved, consume diff; if less, grant back diff.
+    const reserved = Number(req.body?.reservedTokens) || actualTokens;
+    const diff = +(actualTokens - reserved).toFixed(2);
+
+    if (diff === 0) return res.json({ settled: true });
+
+    const fn = diff > 0 ? "sp_consume_tokens" : "sp_grant_tokens";
+    const { data, error } = await sbAdmin.rpc(fn, {
+      p_user_id: userId,
+      p_amount: Math.abs(diff),
+      p_reason: "realtime_settlement",
+      p_metadata: { actualSeconds, reservedTokens: reserved },
+    });
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ settled: true, newBalance: Number(data) });
+  } catch (err) {
+    console.error('Realtime finish error:', err);
+    res.status(500).json({ error: 'Failed to finish realtime session' });
+  }
+});
+
+// ==================== BILLING WEBHOOK ROUTES ====================
+
+// Stripe webhook stub (listen to 'invoice.paid' or 'checkout.session.completed')
+app.post('/api/billing/stripe/webhook', async (req, res) => {
+  try {
+    // TODO: verify signature; here we simulate
+    const event = req.body || {};
+    const userId = event?.metadata?.userId;
+    const planId = event?.metadata?.planId || "starter";
+
+    if (!userId || !PLAN_TOKEN_GRANTS[planId]) {
+      return res.status(400).json({ error: "missing userId/planId" });
+    }
+
+    const grant = PLAN_TOKEN_GRANTS[planId].monthlyTokens;
+    const { data, error } = await sbAdmin.rpc("sp_grant_tokens", {
+      p_user_id: userId,
+      p_amount: grant,
+      p_reason: `stripe_${planId}_monthly_grant`,
+      p_metadata: { eventId: event.id || "simulated" },
+    });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ ok: true, newBalance: Number(data) });
+  } catch (err) {
+    console.error('Stripe webhook error:', err);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// RevenueCat webhook stub (listen to ENTITLEMENT_ACTIVE)
+app.post('/api/billing/revenuecat/webhook', async (req, res) => {
+  try {
+    const event = req.body || {};
+    const userId = event?.app_user_id;
+    const planId = event?.entitlement_id || "starter";
+
+    if (!userId || !PLAN_TOKEN_GRANTS[planId]) {
+      return res.status(400).json({ error: "missing userId/planId" });
+    }
+
+    const grant = PLAN_TOKEN_GRANTS[planId].monthlyTokens;
+    const { data, error } = await sbAdmin.rpc("sp_grant_tokens", {
+      p_user_id: userId,
+      p_amount: grant,
+      p_reason: `revenuecat_${planId}_monthly_grant`,
+      p_metadata: { event },
+    });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ ok: true, newBalance: Number(data) });
+  } catch (err) {
+    console.error('RevenueCat webhook error:', err);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
 
 // ---------- Health ----------
 app.get('/api/health', (req, res) => res.json({ ok: true }))

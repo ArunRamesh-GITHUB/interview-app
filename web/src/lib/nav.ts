@@ -3,6 +3,7 @@ import { Home, Mic, Bot, Pen, File, Library, User, Users, DollarSign } from 'luc
 
 export const NAV_LINKS = [
   { label: 'Home', to: '/', icon: Home },
+  { label: 'Payment Plans', to: '/plans', icon: DollarSign },
   { label: 'Live Interview', to: '/live', icon: Mic },
   { label: 'Realtime AI', to: '/realtime', icon: Bot },
   { label: 'Drill', to: '/drill', icon: Pen },

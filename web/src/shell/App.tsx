@@ -4,6 +4,7 @@ import { Outlet, Link, NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { MobileNav } from '../components/nav/MobileNav'
 import { Logo } from '../components/ui/logo'
+import { TokenBalance } from '../components/ui/TokenBalance'
 import { NAV_LINKS } from '../lib/nav'
 
 
@@ -46,6 +47,23 @@ function Header() {
           )}
         </nav>
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 lg:ml-auto">
+          {user && (
+            <>
+              <TokenBalance 
+                variant="compact" 
+                clickable
+                onClick={() => window.location.href = '/plans'}
+                className="hidden sm:flex mr-1"
+              />
+              <TokenBalance 
+                variant="compact" 
+                showLabel={false}
+                clickable
+                onClick={() => window.location.href = '/plans'}
+                className="sm:hidden mr-1"
+              />
+            </>
+          )}
           {user ? (
             <button
               onClick={handleLogout}
