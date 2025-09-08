@@ -1,0 +1,11 @@
+{
+  "android": {
+    "package": "com.arunramesh123.nailitsupabasesimpleauth"
+  },
+  "extra": {
+    "eas": {
+      "projectId": "b225e142-d5c7-476d-9aa6-d31915f25c7c"
+    }
+  },
+  "owner": "arunramesh123"
+}

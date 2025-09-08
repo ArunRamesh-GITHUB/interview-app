@@ -1,0 +1,71 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Safe area CSS vars for notches */
+:root {
+  --safe-top: env(safe-area-inset-top);
+  --safe-right: env(safe-area-inset-right);
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-left: env(safe-area-inset-left);
+}
+
+/* Avoid iOS input zoom by defaulting to 16px on mobile */
+@media (max-width: 768px) {
+  input, select, textarea { font-size: 16px; }
+}
+
+/* Prevent 100vh bugs on mobile browser chrome; prefer 100dvh */
+html, body, #root { height: 100%; }
+
+/* Utilities for safe padding (used where needed) */
+.pb-safe { padding-bottom: max(var(--safe-bottom), 0.75rem); }
+.pt-safe { padding-top: max(var(--safe-top), 0.5rem); }
+
+/* Kill accidental horizontal scroll */
+html, body { overflow-x: hidden; }
+
+/* Base styles using design system tokens */
+body {
+  font-family: var(--font-family-primary);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line);
+  font-weight: var(--text-body-weight);
+}
+
+/* Override existing components with design system colors */
+.bg-white { background-color: var(--color-card) !important; }
+.bg-gray-50 { background-color: var(--color-surface) !important; }
+.bg-gray-100 { background-color: var(--color-surface-alt) !important; }
+.bg-blue-600 { background-color: var(--color-primary) !important; }
+.bg-blue-700 { background-color: var(--color-primary) !important; }
+.text-gray-600 { color: var(--color-text-secondary) !important; }
+.text-gray-700 { color: var(--color-text-primary) !important; }
+.text-gray-900 { color: var(--color-text-primary) !important; }
+.text-white { color: #ffffff !important; }
+.border-gray-200 { border-color: var(--color-border) !important; }
+.border-gray-300 { border-color: var(--color-divider) !important; }
+
+/* Uniform dark audio player styling */
+audio {
+  width: 100%;
+  height: 44px;
+  border-radius: 22px;
+  outline: none;
+  border: none;
+  background: #2D3748;
+  filter: invert(1);
+}
+
+/* Hide scrollbars for horizontal scroll navigation on tablets */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar { 
+  display: none;  /* Safari and Chrome */
+}

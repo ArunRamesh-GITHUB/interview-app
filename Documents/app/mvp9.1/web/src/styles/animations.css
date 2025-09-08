@@ -1,0 +1,220 @@
+/* Enhanced Motion and Micro-interactions */
+
+/* Button press micro-interaction */
+@keyframes button-press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+
+/* Card hover lift */
+@keyframes card-lift {
+  from { 
+    transform: translateY(0px);
+    box-shadow: var(--shadow-level-1);
+  }
+  to { 
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-level-2);
+  }
+}
+
+/* Fade in animation */
+@keyframes fade-in {
+  from { 
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0px);
+  }
+}
+
+/* Slide in from right */
+@keyframes slide-in-right {
+  from { 
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0px);
+  }
+}
+
+/* Bounce in */
+@keyframes bounce-in {
+  0% { 
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  60% { 
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Progress bar fill animation */
+@keyframes progress-fill {
+  from { width: 0%; }
+  to { width: var(--progress-value, 0%); }
+}
+
+/* Pulse animation for loading states */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Gentle scale on hover */
+@keyframes gentle-scale {
+  from { transform: scale(1); }
+  to { transform: scale(1.02); }
+}
+
+/* Success ripple effect */
+@keyframes success-ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+    background-color: var(--color-success);
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+    background-color: var(--color-success);
+  }
+}
+
+/* Utility Classes for Motion */
+.animate-fade-in {
+  animation: fade-in var(--duration-standard) var(--ease-decelerate);
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--duration-fast) var(--ease-decelerate);
+}
+
+.animate-bounce-in {
+  animation: bounce-in var(--duration-slow) var(--ease-in-out);
+}
+
+.animate-gentle-scale {
+  animation: gentle-scale var(--duration-fast) var(--ease-in-out);
+}
+
+.animate-button-press {
+  animation: button-press var(--duration-instant) var(--ease-in-out);
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s var(--ease-in-out) infinite;
+}
+
+/* Interactive hover effects */
+.hover-lift {
+  transition: transform var(--duration-fast) var(--ease-decelerate), 
+              box-shadow var(--duration-fast) var(--ease-decelerate);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-level-2);
+}
+
+.hover-scale {
+  transition: transform var(--duration-fast) var(--ease-in-out);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-grow {
+  transition: transform var(--duration-fast) var(--ease-in-out);
+}
+
+.hover-grow:hover {
+  transform: scale(1.05);
+}
+
+/* Focus enhancements */
+.focus-ring-enhanced {
+  transition: box-shadow var(--duration-fast) var(--ease-in-out);
+}
+
+.focus-ring-enhanced:focus-visible {
+  outline: none;
+  box-shadow: 
+    0 0 0 var(--focus-outline-width) var(--focus-outline-color),
+    0 0 0 calc(var(--focus-outline-width) + 2px) rgba(79, 70, 229, 0.1);
+}
+
+/* Loading state improvements */
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-alt) 25%,
+    var(--color-border) 50%,
+    var(--color-surface-alt) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Stagger animations for lists */
+.stagger-fade-in > * {
+  animation: fade-in var(--duration-standard) var(--ease-decelerate);
+}
+
+.stagger-fade-in > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-fade-in > *:nth-child(2) { animation-delay: 100ms; }
+.stagger-fade-in > *:nth-child(3) { animation-delay: 200ms; }
+.stagger-fade-in > *:nth-child(4) { animation-delay: 300ms; }
+.stagger-fade-in > *:nth-child(5) { animation-delay: 400ms; }
+.stagger-fade-in > *:nth-child(6) { animation-delay: 500ms; }
+
+/* Enhanced button states */
+.button-enhanced {
+  transition: all var(--duration-fast) var(--ease-in-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.button-enhanced:active {
+  animation: button-press var(--duration-instant) var(--ease-in-out);
+}
+
+.button-enhanced:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-level-2);
+}
+
+.button-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width var(--duration-standard) var(--ease-decelerate),
+              height var(--duration-standard) var(--ease-decelerate);
+}
+
+.button-enhanced:active::before {
+  width: 300px;
+  height: 300px;
+}

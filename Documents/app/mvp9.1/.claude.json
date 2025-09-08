@@ -1,0 +1,137 @@
+{
+  "name": "AI Interview Training App",
+  "description": "Full-stack interview training application with Express.js backend, React web frontend, and Expo mobile app",
+  "version": "2.1.0",
+  "type": "full-stack-web-mobile",
+  "architecture": {
+    "backend": {
+      "framework": "Express.js",
+      "language": "JavaScript (ES modules)",
+      "entry": "server.js",
+      "port": 3001,
+      "features": [
+        "OpenAI integration (TTS, STT, GPT scoring)",
+        "Supabase authentication and database",
+        "Session-based auth with HttpOnly cookies",
+        "Rate limiting",
+        "File upload handling",
+        "Audio transcription and scoring",
+        "Realtime API support"
+      ]
+    },
+    "frontend": {
+      "web": {
+        "framework": "React + Vite",
+        "language": "TypeScript",
+        "styling": "Tailwind CSS",
+        "routing": "React Router DOM",
+        "dev_port": 5173,
+        "build_output": "web/dist"
+      },
+      "mobile": {
+        "framework": "Expo React Native",
+        "language": "TypeScript",
+        "routing": "File-based (Expo Router)",
+        "platform": "iOS/Android"
+      }
+    },
+    "database": {
+      "provider": "Supabase",
+      "features": ["Row Level Security (RLS)", "Real-time subscriptions"],
+      "tables": ["profiles", "attempts"]
+    }
+  },
+  "development": {
+    "commands": {
+      "root": {
+        "start": "npm start",
+        "dev": "npm run dev"
+      },
+      "web": {
+        "dev": "cd web && npm run dev",
+        "build": "cd web && npm run build",
+        "preview": "cd web && npm run preview"
+      },
+      "mobile": {
+        "start": "cd mobile-shell && npx expo start",
+        "android": "cd mobile-shell && npm run android",
+        "ios": "cd mobile-shell && npm run ios"
+      }
+    },
+    "environment": {
+      "required": [
+        "OPENAI_API_KEY",
+        "SUPABASE_URL", 
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SESSION_SECRET"
+      ],
+      "optional": [
+        "ELEVENLABS_API_KEY",
+        "TTS_CACHE_DIR",
+        "FOLLOWUP_IMMEDIATE_MICROCALL"
+      ]
+    }
+  },
+  "security": {
+    "authentication": "Supabase Auth with session cookies",
+    "authorization": "Row Level Security (RLS)",
+    "rate_limiting": "Express rate limiter (strict: 10/min, light: 30/min)",
+    "session_security": "HttpOnly cookies, CSRF protection",
+    "input_validation": "Zod schemas for API validation"
+  },
+  "deployment": {
+    "platforms": ["Render", "Railway", "Vercel"],
+    "build_command": "cd web && npm run build",
+    "start_command": "npm start",
+    "environment": "production"
+  },
+  "key_files": {
+    "server": "server.js",
+    "web_entry": "web/index.html",
+    "web_src": "web/src/main.tsx",
+    "mobile_entry": "mobile-shell/app/_layout.tsx",
+    "database_schema": "supabase_add_attempts.sql",
+    "context": ["CLAUDE.md", "CONTEXT.md", "realtimecontext.md"]
+  },
+  "features": {
+    "interview_modes": [
+      "Live Interview (AI asks questions, records responses)",
+      "Drill Questions (Practice with written/spoken responses)",
+      "Conversational Agent (Voice conversation)",
+      "Persona Support (Medical, Oxbridge, Apprenticeship)"
+    ],
+    "scoring": {
+      "engine": "OpenAI GPT-4o-mini",
+      "output": "JSON structured feedback",
+      "bands": ["Poor", "Weak", "Mixed", "Strong", "Outstanding"],
+      "scale": "0-100"
+    },
+    "audio": {
+      "transcription": "OpenAI Whisper",
+      "tts": ["OpenAI TTS", "ElevenLabs (optional)"],
+      "formats": ["webm", "mp3", "wav"],
+      "caching": "SHA1-based file caching"
+    }
+  },
+  "integrations": {
+    "openai": {
+      "models": {
+        "transcription": "whisper-1",
+        "tts": "tts-1", 
+        "scoring": "gpt-4o-mini",
+        "realtime": "gpt-4o-mini-realtime-preview-2024-12-17"
+      }
+    },
+    "supabase": {
+      "auth": true,
+      "database": true,
+      "realtime": false,
+      "storage": false
+    },
+    "elevenlabs": {
+      "optional": true,
+      "purpose": "Premium TTS alternative"
+    }
+  }
+}

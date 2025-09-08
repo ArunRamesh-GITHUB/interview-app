@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NailIT – Simple Auth</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#fff; --text:#0f172a; --muted:#64748b; --card:#fff; --border:#e5e7eb; --radius:16px;
+      --btn1:#6366f1; --btn2:#22c55e; --btn3:#f43f5e; --btn4:#f59e0b; --btn5:#06b6d4; --btn6:#7c3aed; --white:#fff; }
+    *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .wrap{max-width:1000px;margin:0 auto;padding:24px} .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap} .space-between{justify-content:space-between}
+    select,textarea,input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;font:inherit;background:#fff}
+    textarea{min-height:140px} .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 14px;color:#fff;border:0;border-radius:999px;font-weight:600;cursor:pointer}
+    .b1{background:var(--btn1)} .b2{background:var(--btn2)} .b3{background:var(--btn3)} .b4{background:var(--btn4)} .b5{background:var(--btn5)} .b6{background:var(--btn6)}
+    .muted{color:var(--muted)} .pill{display:inline-block;background:#eef2ff;padding:4px 10px;border-radius:999px;font-weight:600}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media(max-width:900px){.grid{grid-template-columns:1fr}}
+    pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit} .tiny{font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row space-between" style="margin-bottom:12px;">
+      <h1>NailIT – Simple Auth</h1>
+      <div id="authBadge" class="muted tiny">Not signed in</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Account</h3>
+      <div class="row">
+        <input id="username" type="text" placeholder="Username (a-z, A-Z, 0-9, _)" style="flex:1;" />
+        <input id="email" type="email" placeholder="you@example.com" style="flex:1;" />
+        <input id="password" type="password" placeholder="Password (min 8)" style="flex:1;" />
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn b1" id="registerBtn">Register</button>
+        <button class="btn b5" id="loginBtn">Login</button>
+        <button class="btn b3" id="logoutBtn" disabled>Logout</button>
+        <button class="btn b4" id="forgotBtn">Forgot password?</button>
+      </div>
+      <p id="authMsg" class="tiny muted" style="margin-top:6px;">Use Register for a new account, Login if you already have one.</p>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <label for="question" style="min-width:140px;font-weight:600;">Question</label>
+        <select id="question" style="flex:1;">
+          <option>Tell me about yourself.</option>
+          <option>Why do you want this role?</option>
+          <option>Describe a time you solved a difficult problem.</option>
+          <option>What is a recent challenge you overcame and what did you learn?</option>
+        </select>
+        <button class="btn b5" id="shuffle">🎲 Random</button>
+        <button class="btn b6" id="readQuestion">🔊 Read question</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label for="cv" style="font-weight:600;">Optional CV / context</label>
+      <textarea id="cv" placeholder="Paste relevant CV highlights here (optional)"></textarea>
+    </div>
+
+    <div class="card">
+      <label for="answer" style="font-weight:600;">Your Answer (transcript appears here after recording)</label>
+      <textarea id="answer" placeholder="Speak or type here..."></textarea>
+
+      <div class="row space-between" style="margin-top:8px;">
+        <div class="row">
+          <button class="btn b4" id="startRec" disabled>🎙️ Start</button>
+          <button class="btn b3" id="stopRec" disabled>⏹️ Stop</button>
+          <span id="recStatus" class="muted tiny">Sign in to record</span>
+        </div>
+        <div class="row">
+          <button class="btn b1" id="scoreBtn" disabled>Score current answer</button>
+          <button class="btn b6" id="modelAnswerBtn" disabled>📋 Get Model Answer</button>
+          <button class="btn b2" id="improveBtn" disabled>✨ Improve & Rescore</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Current Result <span id="scorePill" class="pill" style="display:none;"></span></h3>
+        <p id="band" class="muted" style="font-weight:600;"></p>
+        <p id="summary" class="muted"></p>
+        <h4>Strengths</h4><ul id="strengths"></ul>
+        <h4>Improvements</h4><ul id="improvements"></ul>
+      </div>
+      <div class="card">
+        <div class="row space-between" style="align-items: flex-start; margin-bottom: 12px;">
+          <h3 style="margin: 0;">Model Answer</h3>
+          <span id="modelAnswerStatus" class="pill" style="background: #f1f5f9; color: #64748b; font-size: 11px; display: none;">AI-Generated</span>
+        </div>
+        <div id="modelAnswer" class="muted" style="min-height: 40px;">Click "Get Model Answer" to see an exemplar response</div>
+        <h4 style="margin-top: 16px;">Follow-up Questions</h4>
+        <ul id="followups"></ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Improved Answer <span id="improvedScorePill" class="pill" style="display:none;"></span></h3>
+      <pre id="improvedAnswer"></pre>
+      <h4>Improved Result</h4>
+      <p id="improvedBand" class="muted" style="font-weight:600;"></p>
+      <p id="improvedSummary" class="muted"></p>
+      <h4>Strengths</h4><ul id="improvedStrengths"></ul>
+      <h4>Improvements</h4><ul id="improvedImprovements"></ul>
+      <h4>Follow-ups</h4><ul id="improvedFollowups"></ul>
+    </div>
+  </div>
+
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
