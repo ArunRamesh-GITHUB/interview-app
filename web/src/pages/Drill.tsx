@@ -12,6 +12,7 @@ import { TokenSessionManager, fetchTokenBalance } from '../lib/tokenSession'
 import { OutOfTokensModal } from '../components/ui/OutOfTokensModal'
 import { createApiWithTokens } from '../lib/apiWithTokens'
 import { useTokenGate } from '../lib/tokenValidation'
+import { usePracticeMeter } from '../tokens/usePracticeMeter'
 
 const DRILL_BANK = [
   'Tell me about yourself.',
@@ -43,6 +44,35 @@ export default function Drill(){
   
   // Token gate for zero token validation
   const { checkTokensOrShowModal, TokenGateModal } = useTokenGate()
+  
+  // Practice meter for token consumption
+  const meter = usePracticeMeter("DRILL")
+  
+  // Button handlers that show token modal even when disabled
+  const handleStartRecording = () => {
+    // If user doesn't have tokens, show modal instead of starting recording
+    if (tokenBalance !== null && tokenBalance < 0.25) {
+      checkTokensOrShowModal(1)
+      return
+    }
+    // If meter is cooling down or disabled for other reasons, still check tokens
+    if (meter.coolingDown && tokenBalance !== null && tokenBalance < 0.25) {
+      checkTokensOrShowModal(1)
+      return
+    }
+    // Otherwise, proceed with the original token validation and start recording
+    startRecording()
+  }
+  
+  const handleScoreText = () => {
+    // If user doesn't have tokens, show modal instead of scoring
+    if (tokenBalance !== null && tokenBalance < 0.25) {
+      checkTokensOrShowModal(1)
+      return
+    }
+    // Otherwise, proceed with scoring
+    scoreText()
+  }
   
   // Create API instance with token session support
   const tokenApi = React.useMemo(() => 
@@ -283,8 +313,8 @@ export default function Drill(){
               <Button 
                 variant="primary" 
                 className="!text-white w-full sm:min-w-[140px] sm:w-auto" 
-                onClick={startRecording}
-                disabled={meter.coolingDown || (tokenBalance !== null && tokenBalance < 0.25)}
+                onClick={handleStartRecording}
+                disabled={meter.coolingDown}
               >
                 <Mic size={16} className="mr-2" />
                 Record Answer
@@ -313,7 +343,7 @@ export default function Drill(){
                   Tokens: {tokenBalance.toFixed(1)}
                 </Badge>
               )}
-              <Button variant="primary" size="sm" onClick={() => scoreText()}>
+              <Button variant="primary" size="sm" onClick={handleScoreText}>
                 <Play size={16} className="mr-2" />
                 Score Text
               </Button>
