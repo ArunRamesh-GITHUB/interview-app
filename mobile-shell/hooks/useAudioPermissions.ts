@@ -1,46 +1,138 @@
-import { useState, useEffect } from 'react';
-import { Platform } from 'react-native';
-import { initializeAudioPermissions } from '../utils/permissions';
+import { useEffect, useRef, useState } from "react";
+import { Audio } from "expo-av";
+import { Platform, AppState, AppStateStatus } from "react-native";
 
-export interface AudioPermissionState {
-  hasPermission: boolean | null;
-  isLoading: boolean;
+interface AudioPermissionsHook {
+  granted: boolean | null;
+  loading: boolean;
   error: string | null;
   requestPermission: () => Promise<boolean>;
+  resetAudioSession: () => Promise<void>;
 }
 
-export function useAudioPermissions(): AudioPermissionState {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function useAudioPermissions(): AudioPermissionsHook {
+  const [granted, setGranted] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const isConfigured = useRef<boolean>(false);
 
-  const requestPermission = async (): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-    
+  const configureAudioMode = async (): Promise<void> => {
     try {
-      const granted = await initializeAudioPermissions();
-      setHasPermission(granted);
-      setIsLoading(false);
-      return granted;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(errorMessage);
-      setHasPermission(false);
-      setIsLoading(false);
-      return false;
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        staysActiveInBackground: false,
+      });
+      isConfigured.current = true;
+      console.log("✅ Audio mode configured for recording");
+    } catch (error) {
+      console.error("❌ Error configuring audio mode:", error);
+      setError(`Failed to configure audio: ${error}`);
     }
   };
 
+  const resetAudioMode = async (): Promise<void> => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DUCK_OTHERS,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+        staysActiveInBackground: false,
+      });
+      isConfigured.current = false;
+      console.log("✅ Audio mode reset");
+    } catch (error) {
+      console.error("❌ Error resetting audio mode:", error);
+    }
+  };
+
+  const requestPermission = async (): Promise<boolean> => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Check current permission status
+      const { status: existing } = await Audio.getPermissionsAsync();
+      console.log("Current audio permission status:", existing);
+      
+      if (existing === "granted") {
+        await configureAudioMode();
+        setGranted(true);
+        return true;
+      }
+
+      // Request permission
+      console.log("Requesting audio permission...");
+      const { status } = await Audio.requestPermissionsAsync();
+      console.log("Permission request result:", status);
+
+      if (status === "granted") {
+        await configureAudioMode();
+        setGranted(true);
+        return true;
+      } else {
+        setGranted(false);
+        setError("Microphone permission was denied");
+        return false;
+      }
+    } catch (error) {
+      console.error("❌ Error requesting microphone permission:", error);
+      setGranted(false);
+      setError(`Permission error: ${error}`);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetAudioSession = async (): Promise<void> => {
+    console.log("🔄 Resetting audio session...");
+    await resetAudioMode();
+    // Wait a bit before reconfiguring
+    await new Promise(resolve => setTimeout(resolve, 300));
+    if (granted) {
+      await configureAudioMode();
+    }
+  };
+
+  // Handle app state changes
   useEffect(() => {
-    // Auto-request permissions on mount
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      console.log("App state changed to:", nextAppState);
+      
+      if (nextAppState === 'active' && granted && !isConfigured.current) {
+        console.log("🔄 Reconfiguring audio on app resume");
+        await configureAudioMode();
+      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+        console.log("🔄 Resetting audio on app background");
+        await resetAudioMode();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [granted]);
+
+  // Initial permission check
+  useEffect(() => {
     requestPermission();
+    
+    // Cleanup on unmount
+    return () => {
+      resetAudioMode();
+    };
   }, []);
 
   return {
-    hasPermission,
-    isLoading,
+    granted,
+    loading,
     error,
     requestPermission,
+    resetAudioSession,
   };
 }

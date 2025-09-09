@@ -13,25 +13,41 @@
       "backgroundColor": "#16181D"
     },
 
-    "android": {
-      "package": "com.arun.mobileshell",
-      "versionCode": 7,
-      "permissions": [
-        "INTERNET",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
-      ],
-      "adaptiveIcon": {
-        "backgroundColor": "#16181D"
-      }
-    },
-
     "ios": {
       "bundleIdentifier": "com.arun.mobileshell",
       "buildNumber": "2",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "We use the microphone to record your interview answers."
-      }
+      },
+      "associatedDomains": [
+        "applinks:yourapp.app.link"
+      ]
+    },
+
+    "android": {
+      "package": "com.nailit.interview",
+      "versionCode": 16,
+      "permissions": [
+        "INTERNET",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "BLUETOOTH",
+        "BLUETOOTH_CONNECT",
+        "com.android.vending.BILLING"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#16181D"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT", "BROWSABLE"],
+          "data": {
+            "scheme": "https",
+            "host": "yourapp.app.link"
+          }
+        }
+      ]
     },
 
     "plugins": [],
