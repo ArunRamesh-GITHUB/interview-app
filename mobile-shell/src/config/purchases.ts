@@ -33,8 +33,8 @@ class PurchaseConfig {
   async initialize(userId?: string) {
     if (this.initialized) return
 
-    const apiKey = Platform.OS === 'android' 
-      ? process.env.REVENUECAT_API_KEY_ANDROID || process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY
+    const apiKey = Platform.OS === 'android'
+      ? process.env.EXPO_PUBLIC_RC_ANDROID_SDK_KEY || process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY
       : process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY
 
     if (!apiKey) {
@@ -49,8 +49,9 @@ class PurchaseConfig {
       usesStoreKit2IfAvailable: false, // Use StoreKit 1 for better compatibility
     })
 
-    console.log('RevenueCat configured with API key:', apiKey.substring(0, 10) + '...')
-    console.log('User ID:', userId)
+    console.log('🔑 RevenueCat configured with API key:', apiKey.substring(0, 6) + '...')
+    console.log('👤 User ID:', userId)
+    console.log('📱 Platform:', Platform.OS)
 
     this.initialized = true
   }
@@ -59,7 +60,22 @@ class PurchaseConfig {
     if (!this.initialized) {
       throw new Error('RevenueCat not initialized. Call initialize() first.')
     }
-    return await Purchases.getOfferings()
+
+    const offerings = await Purchases.getOfferings()
+    console.log('📦 Offerings current offering:', offerings.current?.identifier || 'NONE')
+    console.log('📦 Available packages count:', offerings.current?.availablePackages?.length || 0)
+
+    if (offerings.current?.availablePackages) {
+      offerings.current.availablePackages.forEach((pkg, index) => {
+        console.log(`📦 Package ${index + 1}:`, {
+          identifier: pkg.identifier,
+          productId: pkg.product.identifier,
+          priceString: pkg.product.priceString
+        })
+      })
+    }
+
+    return offerings
   }
 
   async purchasePackage(packageIdentifier: string): Promise<{

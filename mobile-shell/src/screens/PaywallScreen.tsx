@@ -239,11 +239,22 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
   }
 
   const getPackagesByType = (isSubscription: boolean) => {
-    if (!offerings?.current) return []
-    
-    return offerings.current.availablePackages.filter(pkg => 
-      isSubscriptionProduct(pkg.product.identifier) === isSubscription
-    )
+    if (!offerings?.current) {
+      console.log('🚫 No current offering available')
+      return []
+    }
+
+    console.log(`🔍 Filtering packages for isSubscription: ${isSubscription}`)
+    console.log('📦 Total available packages:', offerings.current.availablePackages.length)
+
+    const filtered = offerings.current.availablePackages.filter(pkg => {
+      const isSubProduct = isSubscriptionProduct(pkg.product.identifier)
+      console.log(`📦 Package ${pkg.identifier} (${pkg.product.identifier}): isSubscription=${isSubProduct}, matches=${isSubProduct === isSubscription}`)
+      return isSubProduct === isSubscription
+    })
+
+    console.log(`✅ Filtered result: ${filtered.length} packages`)
+    return filtered
   }
 
   if (loading) {
