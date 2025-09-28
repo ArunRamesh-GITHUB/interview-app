@@ -58,10 +58,23 @@ interface PackageCardProps {
   purchasing: boolean
 }
 
+// Helper function to get display name from package identifier
+const getDisplayName = (identifier: string): string => {
+  const nameMap: { [key: string]: string } = {
+    'starter': 'Starter Plan',
+    'plus': 'Plus Plan',
+    'pro': 'Pro Plan',
+    'power': 'Power Plan',
+    'monthly': 'Starter Plan', // Fallback for your current "monthly" identifier
+  }
+  return nameMap[identifier] || identifier.charAt(0).toUpperCase() + identifier.slice(1)
+}
+
 const PackageCard: React.FC<PackageCardProps> = ({ package: pkg, onPurchase, purchasing }) => {
   const tokenAmount = getTokenAmountFromProduct(pkg.product.identifier)
   const isSubscription = isSubscriptionProduct(pkg.product.identifier)
-  
+  const displayName = getDisplayName(pkg.identifier)
+
   return (
     <View style={{
       backgroundColor: '#fff',
@@ -77,7 +90,7 @@ const PackageCard: React.FC<PackageCardProps> = ({ package: pkg, onPurchase, pur
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#000', marginBottom: 4 }}>
-            {pkg.product.title || pkg.identifier}
+            {displayName}
           </Text>
           <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>
             {tokenAmount} tokens{isSubscription ? ' per month' : ''}
