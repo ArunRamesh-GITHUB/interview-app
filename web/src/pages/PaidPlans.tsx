@@ -18,21 +18,70 @@ export default function PaidPlans() {
   useEffect(() => {
     (async () => {
       try {
-        // Initialize RevenueCat Web
-        Purchases.configure({ apiKey: import.meta.env.VITE_REVENUECAT_WEB_API_KEY })
-        
-        // Set App User ID to Supabase user id if available
-        const uid = (window as any).__SUPA_USER_ID__ || null
-        if (uid) await Purchases.logIn(uid)
+        const webApiKey = import.meta.env.VITE_REVENUECAT_WEB_API_KEY
 
-        // Fetch offerings from RevenueCat
-        const offs = await Purchases.getOfferings()
-        const current = offs.current
-        const packs = (current?.availablePackages || [])
-          .filter((p: any) => p.packageType === 'CUSTOM') // or filter by identifier e.g., 'starter','plus',...
-        setProducts(packs)
+        if (webApiKey && webApiKey !== 'rc_web_xxx') {
+          // Initialize RevenueCat Web if properly configured
+          Purchases.configure({ apiKey: webApiKey })
+
+          // Set App User ID to Supabase user id if available
+          const uid = (window as any).__SUPA_USER_ID__ || null
+          if (uid) await Purchases.logIn(uid)
+
+          // Fetch offerings from RevenueCat
+          const offs = await Purchases.getOfferings()
+          console.log('RevenueCat offerings:', offs)
+          const current = offs.current
+          console.log('Current offering:', current)
+
+          // Get all available packages
+          const packs = (current?.availablePackages || [])
+          console.log('Available packages:', packs)
+          setProducts(packs)
+        } else {
+          // No web API key configured - show mock products for mobile bridge
+          console.log('No RevenueCat Web API key - using mobile-only mode')
+          const mockProducts = [
+            {
+              identifier: 'tokens_starter',
+              storeProduct: {
+                title: 'Starter Plan',
+                priceString: '$9.99/month',
+                description: '120 tokens per month'
+              }
+            },
+            {
+              identifier: 'tokens_plus',
+              storeProduct: {
+                title: 'Plus Plan',
+                priceString: '$19.99/month',
+                description: '250 tokens per month'
+              }
+            },
+            {
+              identifier: 'tokens_pro',
+              storeProduct: {
+                title: 'Pro Plan',
+                priceString: '$39.99/month',
+                description: '480 tokens per month'
+              }
+            },
+            {
+              identifier: 'tokens_power',
+              storeProduct: {
+                title: 'Power Plan',
+                priceString: '$79.99/month',
+                description: '1000 tokens per month'
+              }
+            }
+          ]
+          setProducts(mockProducts)
+        }
       } catch (e) {
         console.warn('RevenueCat initialization failed:', e)
+        // Fallback to mobile-only mode on error
+        console.log('Fallback to mobile-only mode')
+        setProducts([])
       } finally {
         setLoading(false)
       }
