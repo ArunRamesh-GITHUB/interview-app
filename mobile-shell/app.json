@@ -1,32 +1,35 @@
 {
   "expo": {
-    "name": "Mobile Shell",
+    "name": "NailIT Interview Prep",
     "slug": "mobile-shell",
     "scheme": "mobileshell",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#16181D"
     },
-
     "ios": {
-      "bundleIdentifier": "com.arun.mobileshell",
-      "buildNumber": "2",
+      "bundleIdentifier": "com.nailit.interview",
+      "buildNumber": "3",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "We use the microphone to record your interview answers."
+        "NSMicrophoneUsageDescription": "We use the microphone to record your interview answers.",
+        "NSCameraUsageDescription": "We may use the camera for future features.",
+        "NSPhotoLibraryUsageDescription": "We may access your photo library for future features."
       },
       "associatedDomains": [
-        "applinks:yourapp.app.link"
-      ]
+        "applinks:nailit-interview.app"
+      ],
+      "supportsTablet": true
     },
-
     "android": {
       "package": "com.nailit.interview",
-      "versionCode": 16,
+      "versionCode": 18,
       "permissions": [
         "INTERNET",
         "RECORD_AUDIO",
@@ -44,17 +47,19 @@
           "category": ["DEFAULT", "BROWSABLE"],
           "data": {
             "scheme": "https",
-            "host": "yourapp.app.link"
+            "host": "nailit-interview.app"
           }
         }
       ]
     },
-
     "plugins": [],
     "extra": {
       "eas": {
         "projectId": "76caca4c-3bb5-4ae1-85f3-15a4f6b7d6ce"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/76caca4c-3bb5-4ae1-85f3-15a4f6b7d6ce"
     }
   }
 }

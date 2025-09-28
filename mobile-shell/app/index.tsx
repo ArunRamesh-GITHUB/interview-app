@@ -135,6 +135,16 @@ export default function Index() {
             permissions: 'granted'
           }));
         }}
+        onNavigationStateChange={(navState) => {
+          // Check if we're returning from paywall
+          if (navState.url === WEB_URL && webRef.current) {
+            // Send refresh message to web app
+            webRef.current.postMessage(JSON.stringify({
+              type: 'PURCHASE_COMPLETED',
+              timestamp: Date.now()
+            }));
+          }
+        }}
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
           console.error("WebView error:", nativeEvent);
@@ -144,7 +154,21 @@ export default function Index() {
           try {
             const message = JSON.parse(event.nativeEvent.data);
             console.log("Message from WebView:", message);
-            
+
+            // Handle purchase messages from web app
+            if (message.type === 'REQUEST_PURCHASE') {
+              console.log("Web app requesting purchase:", message.productId);
+              // Navigate to native paywall
+              router.push({
+                pathname: '/paywall',
+                params: {
+                  productId: message.productId,
+                  fromWebView: 'true'
+                }
+              });
+              return;
+            }
+
             // Handle audio-related messages from the web app
             if (message.type === 'AUDIO_ERROR') {
               console.error("Audio error from web:", message.error);

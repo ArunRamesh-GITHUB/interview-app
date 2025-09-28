@@ -98,7 +98,8 @@
       "Bash(curl:*)",
       "Bash(cmd /c:*)",
       "Bash(pkill:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(eas:*)"
     ],
     "deny": [],
     "ask": []

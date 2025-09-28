@@ -17,6 +17,8 @@ import OpenAI from 'openai'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { TOKEN_RULES, PLAN_TOKEN_GRANTS, practiceSecondsToTokens, realtimeSecondsToTokens } from './config/pricing.js'
+import { mountRevenueCatWebhook } from './server/plugins/revenuecatWebhook.js'
+import { handleRevenueCatWebhook } from './server/routes/webhooks/revenuecat.js'
 
 
 dotenv.config()
@@ -418,6 +420,8 @@ app.use(express.static(SPA_DIR))
 // Serve fallback static files from public directory
 app.use(express.static(path.join(__dirname, 'public')))
 
+// Mount RevenueCat webhook
+mountRevenueCatWebhook(app, { sbAdmin })
 // ---------- Helpers ----------
 function authRequired(req, res, next) { if (req.session?.user?.id) {return next();} return res.status(401).json({ error: 'Not authenticated' }) }
 function currentUser(req) { return req.session?.user || null }
@@ -1673,6 +1677,22 @@ app.post('/api/billing/revenuecat/webhook', async (req, res) => {
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
+// Simple affiliate bind endpoint
+app.post('/api/affiliate/bind', authRequired, async (req, res) => {
+  try {
+    const user = currentUser(req)
+    // This is just a placeholder endpoint - affiliate binding logic
+    // could be implemented here or may already exist in your profiles table
+    res.json({ ok: true, message: 'Affiliate bind endpoint called' })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Affiliate bind failed' })
+  }
+})
+// ---------- RevenueCat Webhook ----------
+app.post('/webhooks/revenuecat', express.raw({ type: 'application/json' }), async (req, res) => {
+  await handleRevenueCatWebhook(req, res, sbAdmin)
+})
 
 // ---------- Health ----------
 app.get('/api/health', (req, res) => res.json({ ok: true }))
