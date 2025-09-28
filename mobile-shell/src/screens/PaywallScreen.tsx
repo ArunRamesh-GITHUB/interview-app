@@ -149,7 +149,14 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
       setIsSubscribed(subscriptionStatus)
     } catch (error) {
       console.error('Failed to initialize purchases:', error)
-      Alert.alert('Error', 'Failed to load purchase options. Please try again.')
+      console.error('Error details:', JSON.stringify(error, null, 2))
+      Alert.alert(
+        'Purchase Setup Issue',
+        'RevenueCat is not fully configured yet. Please ensure:\n\n1. Products are set up in RevenueCat dashboard\n2. Offerings are created\n3. App is configured for testing\n\nThis is normal during initial setup.',
+        [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]
+      )
     } finally {
       setLoading(false)
     }

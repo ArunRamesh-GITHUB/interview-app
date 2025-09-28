@@ -41,12 +41,16 @@ class PurchaseConfig {
       throw new Error(`RevenueCat API key not found for ${Platform.OS}`)
     }
 
-    // Configure RevenueCat
-    Purchases.setLogLevel(LOG_LEVEL.INFO)
+    // Configure RevenueCat with debug mode for development
+    Purchases.setLogLevel(LOG_LEVEL.DEBUG)
     await Purchases.configure({
       apiKey,
       appUserID: userId || undefined, // Supabase user.id
+      usesStoreKit2IfAvailable: false, // Use StoreKit 1 for better compatibility
     })
+
+    console.log('RevenueCat configured with API key:', apiKey.substring(0, 10) + '...')
+    console.log('User ID:', userId)
 
     this.initialized = true
   }
