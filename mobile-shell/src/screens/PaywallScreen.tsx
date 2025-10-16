@@ -1,260 +1,67 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   SafeAreaView,
   StatusBar,
+  Platform,
 } from 'react-native'
-import { Offerings, PurchasesPackage } from 'react-native-purchases'
-import { purchaseService, getTokenAmountFromProduct, isSubscriptionProduct } from '../lib/purchaseService'
+import { useRouter } from 'expo-router'
+import { useIAP } from '../hooks/useIAP'
+import { IAP, tokensFor, getProductLabel, STARTER_PACK } from '../../../config/iapProducts'
 
 interface PaywallScreenProps {
-  navigation: any
+  navigation?: any
   route?: {
     params?: {
-      currentTokens?: number
-      supabaseUserId?: string
-      productId?: string
-      onPurchaseComplete?: () => void
-      onClose?: () => void
+      user?: { id: string; email?: string }
     }
   }
-}
-
-interface TabButtonProps {
-  title: string
-  active: boolean
-  onPress: () => void
-}
-
-const TabButton: React.FC<TabButtonProps> = ({ title, active, onPress }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={{
-      flex: 1,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderBottomWidth: 2,
-      borderBottomColor: active ? '#000' : 'transparent',
-    }}
-  >
-    <Text style={{
-      fontSize: 16,
-      fontWeight: active ? '600' : '400',
-      color: active ? '#000' : '#666',
-    }}>
-      {title}
-    </Text>
-  </TouchableOpacity>
-)
-
-interface PackageCardProps {
-  package: PurchasesPackage
-  onPurchase: (pkg: PurchasesPackage) => void
-  purchasing: boolean
-}
-
-// Helper function to get display name from package identifier
-const getDisplayName = (identifier: string): string => {
-  const nameMap: { [key: string]: string } = {
-    'starter': 'Starter Plan',
-    'plus': 'Plus Plan',
-    'pro': 'Pro Plan',
-    'power': 'Power Plan',
-    'monthly': 'Starter Plan', // Fallback for your current "monthly" identifier
-  }
-  return nameMap[identifier] || identifier.charAt(0).toUpperCase() + identifier.slice(1)
-}
-
-const PackageCard: React.FC<PackageCardProps> = ({ package: pkg, onPurchase, purchasing }) => {
-  const tokenAmount = getTokenAmountFromProduct(pkg.product.identifier)
-  const isSubscription = isSubscriptionProduct(pkg.product.identifier)
-  const displayName = getDisplayName(pkg.identifier)
-
-  return (
-    <View style={{
-      backgroundColor: '#fff',
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: '#000', marginBottom: 4 }}>
-            {displayName}
-          </Text>
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>
-            {tokenAmount} tokens{isSubscription ? ' per month' : ''}
-          </Text>
-          {pkg.product.description && (
-            <Text style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-              {pkg.product.description}
-            </Text>
-          )}
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: '#000', marginBottom: 8 }}>
-            {pkg.product.priceString}
-          </Text>
-          <TouchableOpacity
-            onPress={() => onPurchase(pkg)}
-            disabled={purchasing}
-            style={{
-              backgroundColor: purchasing ? '#ccc' : '#007AFF',
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 8,
-              minWidth: 80,
-              alignItems: 'center',
-            }}
-          >
-            {purchasing ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
-                {isSubscription ? 'Subscribe' : 'Buy'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  )
 }
 
 export default function PaywallScreen({ navigation, route }: PaywallScreenProps) {
-  const [activeTab, setActiveTab] = useState<'subscriptions' | 'topups'>('subscriptions')
-  const [offerings, setOfferings] = useState<Offerings | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [purchasing, setPurchasing] = useState<string | null>(null)
-  const [currentTokens, setCurrentTokens] = useState(route?.params?.currentTokens || 0)
-  const [isSubscribed, setIsSubscribed] = useState(false)
+  const router = useRouter()
+  const user = route?.params?.user
 
-  const supabaseUserId = route?.params?.supabaseUserId
+  const { products, loading, buy } = useIAP(user)
 
-  useEffect(() => {
-    initializePurchases()
-  }, [])
+  // Map products to display data
+  const productRows = [
+    {
+      sku: Platform.select({ ios: IAP.ios.PLUS, android: IAP.android.PLUS })!,
+      label: 'Plus',
+      tokens: 500,
+      price: '£4.99',
+    },
+    {
+      sku: Platform.select({ ios: IAP.ios.PRO, android: IAP.android.PRO })!,
+      label: 'Pro',
+      tokens: 1200,
+      price: '£9.99',
+    },
+    {
+      sku: Platform.select({ ios: IAP.ios.POWER, android: IAP.android.POWER })!,
+      label: 'Power',
+      tokens: 3000,
+      price: '£19.99',
+    },
+  ]
 
-  const initializePurchases = async () => {
-    try {
-      setLoading(true)
-      
-      // Initialize with user ID if available
-      await purchaseService.initialize(supabaseUserId)
-      
-      // Get offerings and subscription status
-      const [offeringsData, subscriptionStatus] = await Promise.all([
-        purchaseService.getOfferings(),
-        purchaseService.isSubscribed()
-      ])
-      
-      setOfferings(offeringsData)
-      setIsSubscribed(subscriptionStatus)
-    } catch (error) {
-      console.error('Failed to initialize purchases:', error)
-      console.error('Error details:', JSON.stringify(error, null, 2))
-      Alert.alert(
-        'Purchase Setup Issue',
-        'RevenueCat is not fully configured yet. Please ensure:\n\n1. Products are set up in RevenueCat dashboard\n2. Offerings are created\n3. App is configured for testing\n\nThis is normal during initial setup.',
-        [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]
-      )
-    } finally {
-      setLoading(false)
-    }
+  // Get actual store price for a SKU
+  const getStorePrice = (sku: string): string => {
+    const product = products.find((p) => p.productId === sku)
+    return product?.localizedPrice || ''
   }
 
-  const handlePurchase = async (pkg: PurchasesPackage) => {
-    try {
-      setPurchasing(pkg.identifier)
-
-      const result = await purchaseService.purchasePackage(pkg.identifier)
-
-      // Refresh subscription status and token balance
-      await refreshUserData()
-
-      const tokenAmount = getTokenAmountFromProduct(result.productIdentifier)
-      const isSubscription = isSubscriptionProduct(result.productIdentifier)
-
-      Alert.alert(
-        'Purchase Successful!',
-        `${tokenAmount} tokens ${isSubscription ? 'will be added monthly' : 'added to your account'}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Call onPurchaseComplete if provided
-              route?.params?.onPurchaseComplete?.()
-              navigation.goBack()
-            }
-          }
-        ]
-      )
-    } catch (error: any) {
-      console.error('Purchase failed:', error)
-      if (!error.userCancelled) {
-        Alert.alert('Purchase Failed', error.message || 'Please try again.')
-      }
-    } finally {
-      setPurchasing(null)
+  const handleBack = () => {
+    if (navigation?.goBack) {
+      navigation.goBack()
+    } else {
+      router.back()
     }
-  }
-
-  const handleRestorePurchases = async () => {
-    try {
-      setLoading(true)
-      await purchaseService.restorePurchases()
-      await refreshUserData()
-      Alert.alert('Success', 'Purchases restored successfully!')
-    } catch (error: any) {
-      console.error('Restore failed:', error)
-      Alert.alert('Restore Failed', error.message || 'Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const refreshUserData = async () => {
-    try {
-      const subscriptionStatus = await purchaseService.isSubscribed()
-      setIsSubscribed(subscriptionStatus)
-      
-      // TODO: Fetch updated token balance from your API
-      // const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/wallet`, ...)
-      // setCurrentTokens(response.tokens)
-    } catch (error) {
-      console.error('Failed to refresh user data:', error)
-    }
-  }
-
-  const getPackagesByType = (isSubscription: boolean) => {
-    if (!offerings?.current) {
-      console.log('🚫 No current offering available')
-      return []
-    }
-
-    console.log(`🔍 Filtering packages for isSubscription: ${isSubscription}`)
-    console.log('📦 Total available packages:', offerings.current.availablePackages.length)
-
-    const filtered = offerings.current.availablePackages.filter(pkg => {
-      const isSubProduct = isSubscriptionProduct(pkg.product.identifier)
-      console.log(`📦 Package ${pkg.identifier} (${pkg.product.identifier}): isSubscription=${isSubProduct}, matches=${isSubProduct === isSubscription}`)
-      return isSubProduct === isSubscription
-    })
-
-    console.log(`✅ Filtered result: ${filtered.length} packages`)
-    return filtered
   }
 
   if (loading) {
@@ -263,7 +70,9 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
         <StatusBar barStyle="dark-content" />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={{ marginTop: 16, fontSize: 16, color: '#666' }}>Loading purchase options...</Text>
+          <Text style={{ marginTop: 16, fontSize: 16, color: '#666' }}>
+            Loading purchase options...
+          </Text>
         </View>
       </SafeAreaView>
     )
@@ -272,107 +81,147 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Header */}
-      <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+      <View
+        style={{
+          backgroundColor: '#fff',
+          paddingHorizontal: 16,
+          paddingVertical: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#e0e0e0',
+        }}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 12,
+          }}
+        >
+          <TouchableOpacity onPress={handleBack}>
             <Text style={{ fontSize: 16, color: '#007AFF' }}>← Back</Text>
           </TouchableOpacity>
-          <Text style={{ fontSize: 18, fontWeight: '600' }}>Get Tokens</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600' }}>Buy Tokens</Text>
           <View style={{ width: 50 }} />
         </View>
-        
-        {/* Current Token Balance */}
-        <View style={{
-          backgroundColor: '#f0f0f0',
-          padding: 12,
-          borderRadius: 8,
-          alignItems: 'center',
-        }}>
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 4 }}>Current Balance</Text>
-          <Text style={{ fontSize: 24, fontWeight: '700', color: '#000' }}>
-            {currentTokens} tokens
-          </Text>
-          {isSubscribed && (
-            <Text style={{ fontSize: 12, color: '#007AFF', marginTop: 4 }}>
-              ✓ Subscribed
-            </Text>
-          )}
-        </View>
-      </View>
-
-      {/* Tabs */}
-      <View style={{ backgroundColor: '#fff', flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
-        <TabButton
-          title="Subscriptions"
-          active={activeTab === 'subscriptions'}
-          onPress={() => setActiveTab('subscriptions')}
-        />
-        <TabButton
-          title="Token Packs"
-          active={activeTab === 'topups'}
-          onPress={() => setActiveTab('topups')}
-        />
       </View>
 
       {/* Content */}
       <ScrollView style={{ flex: 1, padding: 16 }}>
-        {activeTab === 'subscriptions' && (
-          <View>
-            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#333' }}>
-              Monthly Subscriptions
-            </Text>
-            <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
-              Get tokens automatically every month. Cancel anytime.
-            </Text>
-            {getPackagesByType(true).map(pkg => (
-              <PackageCard
-                key={pkg.identifier}
-                package={pkg}
-                onPurchase={handlePurchase}
-                purchasing={purchasing === pkg.identifier}
-              />
-            ))}
-          </View>
-        )}
+        <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#333' }}>
+          Token Packs
+        </Text>
+        <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+          Buy tokens once and use them anytime. All purchases are one-time only.
+        </Text>
 
-        {activeTab === 'topups' && (
-          <View>
-            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#333' }}>
-              One-Time Token Packs
-            </Text>
-            <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
-              Buy tokens once and use them anytime.
-            </Text>
-            {getPackagesByType(false).map(pkg => (
-              <PackageCard
-                key={pkg.identifier}
-                package={pkg}
-                onPurchase={handlePurchase}
-                purchasing={purchasing === pkg.identifier}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Restore Purchases Button */}
-        <TouchableOpacity
-          onPress={handleRestorePurchases}
+        {/* Starter Pack (Free) */}
+        <View
           style={{
-            backgroundColor: 'transparent',
+            backgroundColor: '#e8f5e9',
+            borderRadius: 12,
             padding: 16,
-            alignItems: 'center',
-            marginTop: 24,
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: '#4caf50',
           }}
         >
-          <Text style={{ color: '#007AFF', fontSize: 16 }}>Restore Purchases</Text>
-        </TouchableOpacity>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 18, fontWeight: '600', color: '#000', marginBottom: 4 }}>
+                {STARTER_PACK.label} Pack
+              </Text>
+              <Text style={{ fontSize: 14, color: '#666' }}>
+                {STARTER_PACK.tokens} tokens · Auto-granted on signup
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#4caf50' }}>FREE</Text>
+            </View>
+          </View>
+        </View>
 
-        {/* Footer Info */}
+        {/* Paid Token Packs */}
+        {productRows.map((row) => {
+          const storePrice = getStorePrice(row.sku)
+
+          return (
+            <View
+              key={row.sku}
+              style={{
+                backgroundColor: '#fff',
+                borderRadius: 12,
+                padding: 16,
+                marginBottom: 12,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '600', color: '#000', marginBottom: 4 }}>
+                    {row.label} Pack
+                  </Text>
+                  <Text style={{ fontSize: 14, color: '#666' }}>{row.tokens} tokens</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#000', marginBottom: 8 }}>
+                    {storePrice || row.price}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => buy(row.sku)}
+                    style={{
+                      backgroundColor: '#007AFF',
+                      paddingHorizontal: 20,
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                      minWidth: 80,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Buy</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )
+        })}
+
+        {/* Info Text */}
         <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-          <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', lineHeight: 16 }}>
-            Payment will be charged to your Google Play account. Subscriptions automatically renew unless cancelled at least 24 hours before the current period ends.
+          <Text
+            style={{ fontSize: 12, color: '#666', textAlign: 'center', lineHeight: 16 }}
+          >
+            All purchases are one-time payments. Tokens never expire. Prices shown in your local
+            currency.
+          </Text>
+          <Text
+            style={{
+              fontSize: 12,
+              color: '#666',
+              textAlign: 'center',
+              lineHeight: 16,
+              marginTop: 12,
+            }}
+          >
+            New users automatically receive {STARTER_PACK.tokens} free tokens on signup.
           </Text>
         </View>
       </ScrollView>

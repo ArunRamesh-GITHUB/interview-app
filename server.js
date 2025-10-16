@@ -20,6 +20,7 @@ import { TOKEN_RULES, PLAN_TOKEN_GRANTS, practiceSecondsToTokens, realtimeSecond
 import { mountRevenueCatWebhook } from './server/plugins/revenuecatWebhook.js'
 import { handleRevenueCatWebhook } from './server/routes/webhooks/revenuecat.js'
 import iapRouter from './server/routes/iap.js'
+import starterRouter from './server/routes/starter.js'
 
 
 dotenv.config()
@@ -420,6 +421,12 @@ app.use('/api/iap', (req, res, next) => {
   next()
 })
 
+// Middleware to provide sbAdmin to starter route
+app.use('/api/starter', (req, res, next) => {
+  req.sbAdmin = sbAdmin
+  next()
+})
+
 // --- Serve SPA build (Vite) from ./web/dist --- //
 const SPA_DIR = path.join(__dirname, 'web', 'dist')
 app.use(express.static(SPA_DIR))
@@ -432,6 +439,7 @@ mountRevenueCatWebhook(app, { sbAdmin })
 
 // Mount native IAP routes
 app.use('/api/iap', iapRouter)
+app.use('/api', starterRouter)
 // ---------- Helpers ----------
 function authRequired(req, res, next) { if (req.session?.user?.id) {return next();} return res.status(401).json({ error: 'Not authenticated' }) }
 function currentUser(req) { return req.session?.user || null }

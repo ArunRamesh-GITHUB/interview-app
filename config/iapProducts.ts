@@ -1,106 +1,93 @@
 /**
- * Native IAP Product Configuration
+ * Native IAP Product Configuration - CONSUMABLES ONLY
  * Shared between mobile app and server
+ *
+ * Pricing:
+ * - Starter: FREE (20 tokens auto-granted on signup)
+ * - Plus: £4.99 → 500 tokens
+ * - Pro: £9.99 → 1200 tokens
+ * - Power: £19.99 → 3000 tokens
  */
 
-export const IAP_PRODUCTS = {
+export const IAP = {
   ios: {
-    // Subscriptions (monthly recurring)
-    STARTER_MONTHLY: 'nailit.starter.monthly',
-    PLUS_MONTHLY: 'nailit.plus.monthly',
-    PRO_MONTHLY: 'nailit.pro.monthly',
-    POWER_MONTHLY: 'nailit.power.monthly',
-
-    // Optional: One-time token packs (consumables)
-    TOKENS_1K: 'nailit.tokens.1k',
-    TOKENS_5K: 'nailit.tokens.5k',
+    PLUS: 'nailit.tokens.plus',   // £4.99  => 500 tokens
+    PRO: 'nailit.tokens.pro',      // £9.99  => 1200 tokens
+    POWER: 'nailit.tokens.power',  // £19.99 => 3000 tokens
   },
   android: {
-    // Subscriptions (monthly recurring)
-    STARTER_MONTHLY: 'nailit_starter_monthly',
-    PLUS_MONTHLY: 'nailit_plus_monthly',
-    PRO_MONTHLY: 'nailit_pro_monthly',
-    POWER_MONTHLY: 'nailit_power_monthly',
-
-    // Optional: One-time token packs (consumables)
-    TOKENS_1K: 'nailit_tokens_1k',
-    TOKENS_5K: 'nailit_tokens_5k',
+    PLUS: 'nailit_tokens_plus',    // £4.99  => 500 tokens
+    PRO: 'nailit_tokens_pro',      // £9.99  => 1200 tokens
+    POWER: 'nailit_tokens_power',  // £19.99 => 3000 tokens
   },
-}
-
-/**
- * Check if a product ID is a subscription (vs consumable)
- */
-export function isSubscription(productId: string): boolean {
-  return /monthly|annual|yearly|subscription/i.test(productId)
-}
+} as const
 
 /**
  * Get token amount for a product ID
  */
-export function tokensForProduct(productId: string): number {
-  const tokenMap: Record<string, number> = {
-    // Monthly subscriptions
-    'nailit.starter.monthly': 120,
-    'nailit.plus.monthly': 250,
-    'nailit.pro.monthly': 480,
-    'nailit.power.monthly': 1000,
-    'nailit_starter_monthly': 120,
-    'nailit_plus_monthly': 250,
-    'nailit_pro_monthly': 480,
-    'nailit_power_monthly': 1000,
+export function tokensFor(productId: string): number {
+  // iOS
+  if (productId === IAP.ios.PLUS) return 500
+  if (productId === IAP.ios.PRO) return 1200
+  if (productId === IAP.ios.POWER) return 3000
 
-    // One-time packs
-    'nailit.tokens.1k': 1000,
-    'nailit_tokens_1k': 1000,
-    'nailit.tokens.5k': 5000,
-    'nailit_tokens_5k': 5000,
+  // Android
+  if (productId === IAP.android.PLUS) return 500
+  if (productId === IAP.android.PRO) return 1200
+  if (productId === IAP.android.POWER) return 3000
 
-    // Legacy product IDs (for backwards compatibility with existing data)
-    'tokens.starter': 120,
-    'tokens.plus': 250,
-    'tokens.pro': 480,
-    'tokens.power': 1000,
-    'starter_monthly': 120,
-    'plus_monthly': 250,
-    'pro_monthly': 480,
-    'power_monthly': 1000,
-  }
-
-  return tokenMap[productId] || 0
+  return 0
 }
 
 /**
- * Get plan tier from product ID
+ * Allowlist of valid product IDs
  */
-export function planTierForProduct(productId: string): string {
-  if (/starter/i.test(productId)) return 'starter'
-  if (/plus/i.test(productId)) return 'plus'
-  if (/pro/i.test(productId)) return 'pro'
-  if (/power/i.test(productId)) return 'power'
-  return 'free'
+export const ALLOWLIST = new Set<string>([
+  IAP.ios.PLUS,
+  IAP.ios.PRO,
+  IAP.ios.POWER,
+  IAP.android.PLUS,
+  IAP.android.PRO,
+  IAP.android.POWER,
+])
+
+/**
+ * All product IDs (for fetching from stores)
+ */
+export const ALL_PRODUCT_IDS = [
+  IAP.ios.PLUS,
+  IAP.ios.PRO,
+  IAP.ios.POWER,
+  IAP.android.PLUS,
+  IAP.android.PRO,
+  IAP.android.POWER,
+]
+
+/**
+ * Get all product IDs for a specific platform
+ */
+export function getProductIds(platform: 'ios' | 'android'): string[] {
+  return platform === 'ios'
+    ? [IAP.ios.PLUS, IAP.ios.PRO, IAP.ios.POWER]
+    : [IAP.android.PLUS, IAP.android.PRO, IAP.android.POWER]
 }
 
 /**
- * Get all subscription product IDs for a platform
+ * Starter pack configuration (free, auto-granted)
  */
-export function getSubscriptionProducts(platform: 'ios' | 'android'): string[] {
-  const products = IAP_PRODUCTS[platform]
-  return [
-    products.STARTER_MONTHLY,
-    products.PLUS_MONTHLY,
-    products.PRO_MONTHLY,
-    products.POWER_MONTHLY,
-  ]
-}
+export const STARTER_PACK = {
+  productId: 'starter_free_20',
+  tokens: 20,
+  price: 'FREE',
+  label: 'Starter',
+} as const
 
 /**
- * Get all consumable product IDs for a platform
+ * Get friendly label for product ID
  */
-export function getConsumableProducts(platform: 'ios' | 'android'): string[] {
-  const products = IAP_PRODUCTS[platform]
-  return [
-    products.TOKENS_1K,
-    products.TOKENS_5K,
-  ]
+export function getProductLabel(productId: string): string {
+  if (productId.includes('plus')) return 'Plus'
+  if (productId.includes('pro')) return 'Pro'
+  if (productId.includes('power')) return 'Power'
+  return 'Unknown'
 }

@@ -1,42 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Platform, Alert } from 'react-native'
 import * as RNIap from 'react-native-iap'
-import {
-  IAP_PRODUCTS,
-  isSubscription,
-  getSubscriptionProducts,
-  getConsumableProducts,
-} from '../../../config/iapProducts'
-import type {
-  Product,
-  Subscription,
-  Purchase,
-  PurchaseError,
-} from 'react-native-iap'
+import { IAP, getProductIds } from '../../../config/iapProducts'
+import type { Product, Purchase, PurchaseError } from 'react-native-iap'
 
 interface User {
   id: string
   email?: string
 }
 
-interface IAPState {
-  products: Product[]
-  subscriptions: Subscription[]
-  loading: boolean
-  connected: boolean
-}
-
 export function useIAP(user?: User) {
-  const [state, setState] = useState<IAPState>({
-    products: [],
-    subscriptions: [],
-    loading: true,
-    connected: false,
-  })
-
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
   const purchaseUpdateSub = useRef<any>(null)
   const purchaseErrorSub = useRef<any>(null)
-  const isInitialized = useRef(false)
 
   // Initialize IAP connection and fetch products
   useEffect(() => {
@@ -60,35 +37,21 @@ export function useIAP(user?: User) {
           }
         }
 
-        // Fetch available products
-        const platform = Platform.OS === 'ios' ? 'ios' : 'android'
-        const subscriptionSkus = getSubscriptionProducts(platform)
-        const consumableSkus = getConsumableProducts(platform)
+        // Fetch consumable products
+        const skus = getProductIds(Platform.OS as 'ios' | 'android')
+        console.log('[IAP] Fetching products:', skus)
 
-        console.log('[IAP] Fetching subscriptions:', subscriptionSkus)
-        console.log('[IAP] Fetching consumables:', consumableSkus)
-
-        const [subs, products] = await Promise.all([
-          RNIap.getSubscriptions({ skus: subscriptionSkus }),
-          RNIap.getProducts({ skus: consumableSkus }),
-        ])
-
-        console.log('[IAP] Loaded subscriptions:', subs.length)
-        console.log('[IAP] Loaded products:', products.length)
+        const productList = await RNIap.getProducts({ skus })
+        console.log('[IAP] Loaded products:', productList.length)
 
         if (mounted) {
-          setState({
-            subscriptions: subs,
-            products,
-            loading: false,
-            connected: true,
-          })
-          isInitialized.current = true
+          setProducts(productList)
+          setLoading(false)
         }
       } catch (error) {
         console.error('[IAP] Initialization error:', error)
         if (mounted) {
-          setState((prev) => ({ ...prev, loading: false, connected: false }))
+          setLoading(false)
         }
       }
     }
@@ -128,13 +91,13 @@ export function useIAP(user?: User) {
             verificationData.transactionReceipt = purchase.transactionReceipt
           } else if (Platform.OS === 'android') {
             verificationData.purchaseToken = (purchase as any).purchaseToken
-            verificationData.packageName = (purchase as any).packageNameAndroid
           }
 
           console.log('[IAP] Verifying purchase with server...')
 
           // Verify with server
-          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://interview-app-4ouh.onrender.com'
+          const apiUrl =
+            process.env.EXPO_PUBLIC_API_URL || 'https://interview-app-4ouh.onrender.com'
           const response = await fetch(`${apiUrl}/api/iap/verify-purchase`, {
             method: 'POST',
             headers: {
@@ -147,18 +110,18 @@ export function useIAP(user?: User) {
           console.log('[IAP] Server verification result:', result)
 
           if (result?.ok) {
-            // Server verified successfully, finish the transaction
-            console.log('[IAP] Purchase verified, finishing transaction...')
+            // Server verified successfully, finish the transaction as consumable
+            console.log('[IAP] Purchase verified, finishing transaction as consumable...')
             await RNIap.finishTransaction({
               purchase,
-              isConsumable: result.isConsumable ?? !isSubscription(purchase.productId),
+              isConsumable: true, // All our products are consumables
             })
             console.log('[IAP] Transaction finished successfully')
 
-            // Show success message
+            // Show success message with token amount
             Alert.alert(
               'Purchase Successful',
-              result.message || 'Your purchase has been completed!',
+              result.message || `${result.tokensGranted || 0} tokens added to your account!`,
               [{ text: 'OK' }]
             )
           } else {
@@ -183,22 +146,20 @@ export function useIAP(user?: User) {
       }
     )
 
-    purchaseErrorSub.current = RNIap.purchaseErrorListener(
-      (error: PurchaseError) => {
-        console.warn('[IAP] Purchase error:', {
-          code: error.code,
-          message: error.message,
-        })
+    purchaseErrorSub.current = RNIap.purchaseErrorListener((error: PurchaseError) => {
+      console.warn('[IAP] Purchase error:', {
+        code: error.code,
+        message: error.message,
+      })
 
-        // Don't show alert for user cancellations
-        if (error.code === 'E_USER_CANCELLED') {
-          console.log('[IAP] User cancelled purchase')
-          return
-        }
-
-        Alert.alert('Purchase Error', error.message || 'Unable to complete purchase')
+      // Don't show alert for user cancellations
+      if (error.code === 'E_USER_CANCELLED') {
+        console.log('[IAP] User cancelled purchase')
+        return
       }
-    )
+
+      Alert.alert('Purchase Error', error.message || 'Unable to complete purchase')
+    })
 
     return () => {
       if (purchaseUpdateSub.current) {
@@ -215,140 +176,40 @@ export function useIAP(user?: User) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (isInitialized.current) {
-        console.log('[IAP] Ending connection...')
-        RNIap.endConnection()
-        isInitialized.current = false
-      }
+      console.log('[IAP] Ending connection...')
+      RNIap.endConnection()
     }
   }, [])
 
   /**
-   * Purchase a subscription
+   * Buy a consumable product
    */
-  const purchaseSubscription = useCallback(
-    async (productId: string) => {
-      if (!state.connected) {
-        Alert.alert('Error', 'Store is not connected. Please try again.')
-        return
-      }
-
+  const buy = useCallback(
+    async (sku: string) => {
       if (!user?.id) {
         Alert.alert('Error', 'You must be logged in to make a purchase.')
         return
       }
 
       try {
-        console.log('[IAP] Requesting subscription:', productId)
-        await RNIap.requestSubscription({
-          sku: productId,
-          andDangerouslyFinishTransactionAutomatically: false,
-        })
-      } catch (error: any) {
-        console.error('[IAP] Subscription request error:', error)
-        if (error.code !== 'E_USER_CANCELLED') {
-          Alert.alert('Purchase Failed', error.message || 'Unable to start purchase')
-        }
-      }
-    },
-    [state.connected, user?.id]
-  )
-
-  /**
-   * Purchase a consumable product
-   */
-  const purchaseProduct = useCallback(
-    async (productId: string) => {
-      if (!state.connected) {
-        Alert.alert('Error', 'Store is not connected. Please try again.')
-        return
-      }
-
-      if (!user?.id) {
-        Alert.alert('Error', 'You must be logged in to make a purchase.')
-        return
-      }
-
-      try {
-        console.log('[IAP] Requesting product:', productId)
+        console.log('[IAP] Requesting purchase:', sku)
         await RNIap.requestPurchase({
-          sku: productId,
+          sku,
           andDangerouslyFinishTransactionAutomatically: false,
         })
       } catch (error: any) {
-        console.error('[IAP] Product purchase error:', error)
+        console.error('[IAP] Purchase request error:', error)
         if (error.code !== 'E_USER_CANCELLED') {
           Alert.alert('Purchase Failed', error.message || 'Unable to start purchase')
         }
       }
     },
-    [state.connected, user?.id]
+    [user?.id]
   )
-
-  /**
-   * Restore previous purchases
-   */
-  const restorePurchases = useCallback(async () => {
-    if (!state.connected) {
-      Alert.alert('Error', 'Store is not connected. Please try again.')
-      return []
-    }
-
-    try {
-      console.log('[IAP] Restoring purchases...')
-      const purchases = await RNIap.getAvailablePurchases()
-      console.log('[IAP] Found purchases:', purchases.length)
-
-      if (purchases.length === 0) {
-        Alert.alert('No Purchases Found', 'No previous purchases were found to restore.')
-        return []
-      }
-
-      // Optionally, send to server to reconcile
-      if (user?.id) {
-        try {
-          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://interview-app-4ouh.onrender.com'
-          await fetch(`${apiUrl}/api/iap/restore-purchases`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.id,
-              platform: Platform.OS,
-              purchases: purchases.map((p) => ({
-                productId: p.productId,
-                transactionId: p.transactionId,
-                transactionReceipt: p.transactionReceipt,
-                purchaseToken: (p as any).purchaseToken,
-              })),
-            }),
-          })
-        } catch (error) {
-          console.warn('[IAP] Failed to sync restored purchases with server:', error)
-        }
-      }
-
-      Alert.alert(
-        'Purchases Restored',
-        `Successfully restored ${purchases.length} purchase(s).`
-      )
-      return purchases
-    } catch (error: any) {
-      console.error('[IAP] Restore purchases error:', error)
-      Alert.alert('Restore Failed', error.message || 'Unable to restore purchases')
-      return []
-    }
-  }, [state.connected, user?.id])
 
   return {
-    // State
-    products: state.products,
-    subscriptions: state.subscriptions,
-    loading: state.loading,
-    connected: state.connected,
-
-    // Actions
-    purchaseSubscription,
-    purchaseProduct,
-    restorePurchases,
+    products,
+    loading,
+    buy,
   }
 }
