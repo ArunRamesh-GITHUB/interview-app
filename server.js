@@ -19,6 +19,7 @@ import { randomUUID } from 'crypto'
 import { TOKEN_RULES, PLAN_TOKEN_GRANTS, practiceSecondsToTokens, realtimeSecondsToTokens } from './config/pricing.js'
 import { mountRevenueCatWebhook } from './server/plugins/revenuecatWebhook.js'
 import { handleRevenueCatWebhook } from './server/routes/webhooks/revenuecat.js'
+import iapRouter from './server/routes/iap.js'
 
 
 dotenv.config()
@@ -413,6 +414,12 @@ app.use(
 const strictLimiter = rateLimit({ windowMs: 60 * 1000, max: 10 })
 const lightLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 })
 
+// Middleware to provide sbAdmin to IAP routes
+app.use('/api/iap', (req, res, next) => {
+  req.sbAdmin = sbAdmin
+  next()
+})
+
 // --- Serve SPA build (Vite) from ./web/dist --- //
 const SPA_DIR = path.join(__dirname, 'web', 'dist')
 app.use(express.static(SPA_DIR))
@@ -422,6 +429,9 @@ app.use(express.static(path.join(__dirname, 'public')))
 
 // Mount RevenueCat webhook
 mountRevenueCatWebhook(app, { sbAdmin })
+
+// Mount native IAP routes
+app.use('/api/iap', iapRouter)
 // ---------- Helpers ----------
 function authRequired(req, res, next) { if (req.session?.user?.id) {return next();} return res.status(401).json({ error: 'Not authenticated' }) }
 function currentUser(req) { return req.session?.user || null }

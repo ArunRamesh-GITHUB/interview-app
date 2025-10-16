@@ -100,6 +100,12 @@ export default function Index() {
         >
           <Text style={styles.demoNavButtonText}>Paywall</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.demoNavButton}
+          onPress={() => router.push('/debug-purchases')}
+        >
+          <Text style={styles.demoNavButtonText}>Debug</Text>
+        </TouchableOpacity>
       </View>
 
       <WebView

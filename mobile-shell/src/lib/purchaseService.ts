@@ -97,12 +97,17 @@ export const purchaseService = createPurchaseService()
 // Helper function to get token amount from product ID
 export function getTokenAmountFromProduct(productId: string): number {
   const tokenMap: { [key: string]: number } = {
+    // Google Play Console product IDs (current)
+    'starter_monthly': 120,
+    'plus_monthly': 250,
+    'pro_monthly': 480,
+    'power_monthly': 1000,
     // iOS subscription products
     'tokens.starter': 120,
     'tokens.plus': 250,
     'tokens.pro': 480,
     'tokens.power': 1000,
-    // Android subscription products
+    // Android subscription products (alternative format)
     'tokens_starter': 120,
     'tokens_plus': 250,
     'tokens_pro': 480,
@@ -119,7 +124,7 @@ export function getTokenAmountFromProduct(productId: string): number {
 
 // Helper to check if product is subscription
 export function isSubscriptionProduct(productId: string): boolean {
-  return productId.startsWith('sub_') || productId.startsWith('tokens.')|| productId.startsWith('tokens_')
+  return productId.endsWith('_monthly') || productId.startsWith('sub_') || productId.startsWith('tokens.')|| productId.startsWith('tokens_')
 }
 
 // Helper to check if product is consumable pack

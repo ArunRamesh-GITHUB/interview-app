@@ -2,12 +2,17 @@ import crypto from 'crypto'
 
 // Product token mapping (matching tokenPacks.js config)
 const PRODUCT_TOKEN_MAP = {
+  // Google Play Console product IDs (current)
+  'starter_monthly': 120,
+  'plus_monthly': 250,
+  'pro_monthly': 480,
+  'power_monthly': 1000,
   // iOS subscription products
   'tokens.starter': 120,
   'tokens.plus': 250,
   'tokens.pro': 480,
   'tokens.power': 1000,
-  // Android subscription products
+  // Android subscription products (alternative format)
   'tokens_starter': 120,
   'tokens_plus': 250,
   'tokens_pro': 480,

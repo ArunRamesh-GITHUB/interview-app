@@ -100,7 +100,8 @@
       "Bash(pkill:*)",
       "Bash(powershell:*)",
       "Bash(eas:*)",
-      "Bash(npm run build:android:preview:*)"
+      "Bash(npm run build:android:preview:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

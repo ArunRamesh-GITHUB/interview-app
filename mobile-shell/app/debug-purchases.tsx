@@ -26,18 +26,37 @@ export default function DebugPurchasesScreen() {
   const loadData = async () => {
     try {
       setRefreshing(true)
+
+      console.log('🔍 Debug: Starting to load purchase data...')
       await purchaseService.initialize()
+      console.log('✅ Debug: Purchase service initialized')
 
       const [customerData, offeringsData] = await Promise.all([
         purchaseService.getCustomerInfo(),
         purchaseService.getOfferings()
       ])
 
+      console.log('📦 Debug: Offerings:', JSON.stringify(offeringsData, null, 2))
+      console.log('👤 Debug: Customer Info:', JSON.stringify(customerData, null, 2))
+
       setCustomerInfo(customerData)
       setOfferings(offeringsData)
-    } catch (error) {
-      console.error('Failed to load purchase data:', error)
-      Alert.alert('Error', 'Failed to load purchase data')
+
+      // Test log for offerings
+      if (offeringsData?.current) {
+        console.log('✅ Current offering found:', offeringsData.current.identifier)
+        console.log('📦 Available packages:', offeringsData.current.availablePackages.length)
+        offeringsData.current.availablePackages.forEach((pkg, i) => {
+          console.log(`  ${i + 1}. ${pkg.identifier} - ${pkg.product.priceString}`)
+        })
+      } else {
+        console.warn('⚠️ No current offering found!')
+      }
+
+      Alert.alert('Success', `Loaded ${offeringsData?.current?.availablePackages?.length || 0} packages`)
+    } catch (error: any) {
+      console.error('❌ Failed to load purchase data:', error)
+      Alert.alert('Error', error.message || 'Failed to load purchase data')
     } finally {
       setRefreshing(false)
     }
