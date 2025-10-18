@@ -3,22 +3,24 @@
  * Shared between mobile app and server
  *
  * Pricing:
- * - Starter: FREE (20 tokens auto-granted on signup)
- * - Plus: £4.99 → 500 tokens
- * - Pro: £9.99 → 1200 tokens
- * - Power: £19.99 → 3000 tokens
+ * - Starter: $9.99 → 120 tokens
+ * - Plus: $19.99 → 250 tokens
+ * - Pro: $39.99 → 480 tokens
+ * - Power: $79.99 → 1000 tokens
  */
 
 export const IAP = {
   ios: {
-    PLUS: 'nailit.tokens.plus',   // £4.99  => 500 tokens
-    PRO: 'nailit.tokens.pro',      // £9.99  => 1200 tokens
-    POWER: 'nailit.tokens.power',  // £19.99 => 3000 tokens
+    STARTER: 'nailit.tokens.starter',  // $9.99  => 120 tokens
+    PLUS: 'nailit.tokens.plus',        // $19.99 => 250 tokens
+    PRO: 'nailit.tokens.pro',          // $39.99 => 480 tokens
+    POWER: 'nailit.tokens.power',      // $79.99 => 1000 tokens
   },
   android: {
-    PLUS: 'nailit_tokens_plus',    // £4.99  => 500 tokens
-    PRO: 'nailit_tokens_pro',      // £9.99  => 1200 tokens
-    POWER: 'nailit_tokens_power',  // £19.99 => 3000 tokens
+    STARTER: 'nailit_tokens_starter',  // $9.99  => 120 tokens
+    PLUS: 'nailit_tokens_plus',        // $19.99 => 250 tokens
+    PRO: 'nailit_tokens_pro',          // $39.99 => 480 tokens
+    POWER: 'nailit_tokens_power',      // $79.99 => 1000 tokens
   },
 } as const
 
@@ -27,14 +29,16 @@ export const IAP = {
  */
 export function tokensFor(productId: string): number {
   // iOS
-  if (productId === IAP.ios.PLUS) return 500
-  if (productId === IAP.ios.PRO) return 1200
-  if (productId === IAP.ios.POWER) return 3000
+  if (productId === IAP.ios.STARTER) return 120
+  if (productId === IAP.ios.PLUS) return 250
+  if (productId === IAP.ios.PRO) return 480
+  if (productId === IAP.ios.POWER) return 1000
 
   // Android
-  if (productId === IAP.android.PLUS) return 500
-  if (productId === IAP.android.PRO) return 1200
-  if (productId === IAP.android.POWER) return 3000
+  if (productId === IAP.android.STARTER) return 120
+  if (productId === IAP.android.PLUS) return 250
+  if (productId === IAP.android.PRO) return 480
+  if (productId === IAP.android.POWER) return 1000
 
   return 0
 }
@@ -43,9 +47,11 @@ export function tokensFor(productId: string): number {
  * Allowlist of valid product IDs
  */
 export const ALLOWLIST = new Set<string>([
+  IAP.ios.STARTER,
   IAP.ios.PLUS,
   IAP.ios.PRO,
   IAP.ios.POWER,
+  IAP.android.STARTER,
   IAP.android.PLUS,
   IAP.android.PRO,
   IAP.android.POWER,
@@ -55,9 +61,11 @@ export const ALLOWLIST = new Set<string>([
  * All product IDs (for fetching from stores)
  */
 export const ALL_PRODUCT_IDS = [
+  IAP.ios.STARTER,
   IAP.ios.PLUS,
   IAP.ios.PRO,
   IAP.ios.POWER,
+  IAP.android.STARTER,
   IAP.android.PLUS,
   IAP.android.PRO,
   IAP.android.POWER,
@@ -68,8 +76,8 @@ export const ALL_PRODUCT_IDS = [
  */
 export function getProductIds(platform: 'ios' | 'android'): string[] {
   return platform === 'ios'
-    ? [IAP.ios.PLUS, IAP.ios.PRO, IAP.ios.POWER]
-    : [IAP.android.PLUS, IAP.android.PRO, IAP.android.POWER]
+    ? [IAP.ios.STARTER, IAP.ios.PLUS, IAP.ios.PRO, IAP.ios.POWER]
+    : [IAP.android.STARTER, IAP.android.PLUS, IAP.android.PRO, IAP.android.POWER]
 }
 
 /**
@@ -86,6 +94,7 @@ export const STARTER_PACK = {
  * Get friendly label for product ID
  */
 export function getProductLabel(productId: string): string {
+  if (productId.includes('starter')) return 'Starter'
   if (productId.includes('plus')) return 'Plus'
   if (productId.includes('pro')) return 'Pro'
   if (productId.includes('power')) return 'Power'

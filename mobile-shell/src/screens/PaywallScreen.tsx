@@ -31,22 +31,28 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
   // Map products to display data
   const productRows = [
     {
+      sku: Platform.select({ ios: IAP.ios.STARTER, android: IAP.android.STARTER })!,
+      label: 'Starter',
+      tokens: 120,
+      price: '$9.99',
+    },
+    {
       sku: Platform.select({ ios: IAP.ios.PLUS, android: IAP.android.PLUS })!,
       label: 'Plus',
-      tokens: 500,
-      price: '£4.99',
+      tokens: 250,
+      price: '$19.99',
     },
     {
       sku: Platform.select({ ios: IAP.ios.PRO, android: IAP.android.PRO })!,
       label: 'Pro',
-      tokens: 1200,
-      price: '£9.99',
+      tokens: 480,
+      price: '$39.99',
     },
     {
       sku: Platform.select({ ios: IAP.ios.POWER, android: IAP.android.POWER })!,
       label: 'Power',
-      tokens: 3000,
-      price: '£19.99',
+      tokens: 1000,
+      price: '$79.99',
     },
   ]
 
@@ -117,39 +123,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
           Buy tokens once and use them anytime. All purchases are one-time only.
         </Text>
 
-        {/* Starter Pack (Free) */}
-        <View
-          style={{
-            backgroundColor: '#e8f5e9',
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 12,
-            borderWidth: 1,
-            borderColor: '#4caf50',
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 18, fontWeight: '600', color: '#000', marginBottom: 4 }}>
-                {STARTER_PACK.label} Pack
-              </Text>
-              <Text style={{ fontSize: 14, color: '#666' }}>
-                {STARTER_PACK.tokens} tokens · Auto-granted on signup
-              </Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#4caf50' }}>FREE</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Paid Token Packs */}
+        {/* Token Packs */}
         {productRows.map((row) => {
           const storePrice = getStorePrice(row.sku)
 
@@ -211,17 +185,6 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
           >
             All purchases are one-time payments. Tokens never expire. Prices shown in your local
             currency.
-          </Text>
-          <Text
-            style={{
-              fontSize: 12,
-              color: '#666',
-              textAlign: 'center',
-              lineHeight: 16,
-              marginTop: 12,
-            }}
-          >
-            New users automatically receive {STARTER_PACK.tokens} free tokens on signup.
           </Text>
         </View>
       </ScrollView>
