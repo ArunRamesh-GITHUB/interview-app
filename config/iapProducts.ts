@@ -11,16 +11,16 @@
 
 export const IAP = {
   ios: {
-    STARTER: 'nailit.tokens.starter',  // $9.99  => 120 tokens
-    PLUS: 'nailit.tokens.plus',        // $19.99 => 250 tokens
-    PRO: 'nailit.tokens.pro',          // $39.99 => 480 tokens
-    POWER: 'nailit.tokens.power',      // $79.99 => 1000 tokens
+    STARTER: 'com.nailit.pack.starter',  // $9.99  => 120 tokens
+    PLUS: 'com.nailit.pack.plus',        // $19.99 => 250 tokens
+    PRO: 'com.nailit.pack.pro',          // $39.99 => 480 tokens
+    POWER: 'com.nailit.pack.power',      // $79.99 => 1000 tokens
   },
   android: {
-    STARTER: 'nailit_tokens_starter',  // $9.99  => 120 tokens
-    PLUS: 'nailit_tokens_plus',        // $19.99 => 250 tokens
-    PRO: 'nailit_tokens_pro',          // $39.99 => 480 tokens
-    POWER: 'nailit_tokens_power',      // $79.99 => 1000 tokens
+    STARTER: 'pack_starter_120',  // $9.99  => 120 tokens
+    PLUS: 'pack_plus_250',        // $19.99 => 250 tokens
+    PRO: 'pack_pro_480',          // $39.99 => 480 tokens
+    POWER: 'pack_power_1000',     // $79.99 => 1000 tokens
   },
 } as const
 
@@ -39,6 +39,12 @@ export function tokensFor(productId: string): number {
   if (productId === IAP.android.PLUS) return 250
   if (productId === IAP.android.PRO) return 480
   if (productId === IAP.android.POWER) return 1000
+
+  // Legacy/fallback
+  if (productId.includes('120')) return 120
+  if (productId.includes('250')) return 250
+  if (productId.includes('480')) return 480
+  if (productId.includes('1000')) return 1000
 
   return 0
 }
