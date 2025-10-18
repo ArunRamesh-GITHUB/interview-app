@@ -8,7 +8,6 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="debug-purchases" options={{ presentation: 'modal' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="light" />
