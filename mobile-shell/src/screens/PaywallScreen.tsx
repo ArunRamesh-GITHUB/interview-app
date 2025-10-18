@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useIAP } from '../hooks/useIAP'
-import { IAP, tokensFor, getProductLabel, STARTER_PACK } from '../../../config/iapProducts'
+import { IAP, tokensFor, getProductLabel, STARTER_PACK } from '../config/iapProducts'
 
 interface PaywallScreenProps {
   navigation?: any

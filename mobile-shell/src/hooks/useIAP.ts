@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Platform, Alert } from 'react-native'
 import * as RNIap from 'react-native-iap'
-import { IAP, getProductIds } from '../../../config/iapProducts'
+import { IAP, getProductIds } from '../config/iapProducts'
 import type { Product, Purchase, PurchaseError } from 'react-native-iap'
 
 interface User {
