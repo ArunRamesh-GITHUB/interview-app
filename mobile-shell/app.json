@@ -29,7 +29,7 @@
     },
     "android": {
       "package": "com.nailit.interview",
-      "versionCode": 34,
+      "versionCode": 35,
       "permissions": [
         "INTERNET",
         "RECORD_AUDIO",

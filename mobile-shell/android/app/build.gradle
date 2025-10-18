@@ -87,12 +87,12 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.arun.mobileshell'
+    namespace 'com.nailit.interview'
     defaultConfig {
-        applicationId 'com.arun.mobileshell'
+        applicationId 'com.nailit.interview'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 34
+        versionCode 35
         versionName "1.0.0"
     }
     signingConfigs {
