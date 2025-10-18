@@ -29,7 +29,7 @@
     },
     "android": {
       "package": "com.nailit.interview",
-      "versionCode": 30,
+      "versionCode": 31,
       "permissions": [
         "INTERNET",
         "RECORD_AUDIO",
@@ -44,7 +44,10 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "category": ["DEFAULT", "BROWSABLE"],
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ],
           "data": {
             "scheme": "https",
             "host": "nailit-interview.app"

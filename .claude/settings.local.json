@@ -101,7 +101,11 @@
       "Bash(powershell:*)",
       "Bash(eas:*)",
       "Bash(npm run build:android:preview:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(cat:*)",
+      "Bash(npm run build:android:*)",
+      "Bash(npm run build:ios:*)",
+      "WebFetch(domain:expo.dev)"
     ],
     "deny": [],
     "ask": []
