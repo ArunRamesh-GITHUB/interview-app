@@ -94,6 +94,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 50
         versionName "1.0.0"
+
+        // Tell react-native-iap to use Play Store variant (not Amazon)
+        missingDimensionStrategy 'store', 'play'
     }
     signingConfigs {
         debug {
