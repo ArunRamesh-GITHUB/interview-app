@@ -29,7 +29,7 @@
     },
     "android": {
       "package": "com.nailit.interview",
-      "versionCode": 39,
+      "versionCode": 41,
       "permissions": [
         "INTERNET",
         "RECORD_AUDIO",
@@ -55,7 +55,9 @@
         }
       ]
     },
-    "plugins": [],
+    "plugins": [
+      "expo-router"
+    ],
     "extra": {
       "eas": {
         "projectId": "76caca4c-3bb5-4ae1-85f3-15a4f6b7d6ce"
