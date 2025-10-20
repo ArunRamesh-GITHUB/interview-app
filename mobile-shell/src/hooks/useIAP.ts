@@ -1,27 +1,61 @@
-// Temporary stub - react-native-iap removed until build issues resolved
-import { useState, useCallback } from 'react'
-import { Alert } from 'react-native'
+// Minimal IAP hook - initializes connection to link Play Billing Library
+import { useEffect, useState, useCallback } from 'react'
+import { Alert, Platform } from 'react-native'
+import * as RNIap from 'react-native-iap'
+import { getProductIds } from '../config/iapProducts'
 
 interface User {
   id: string
   email?: string
 }
 
-interface Product {
-  productId: string
-  title: string
-  description: string
-  price: string
-}
-
 export function useIAP(user?: User) {
-  const [products] = useState<Product[]>([])
-  const [loading] = useState(false)
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Initialize IAP connection to ensure Play Billing Library is linked
+  useEffect(() => {
+    let mounted = true
+
+    async function initIAP() {
+      try {
+        console.log('[IAP] Initializing connection...')
+        await RNIap.initConnection()
+        console.log('[IAP] Connection established')
+
+        if (!mounted) return
+
+        // Fetch products
+        const skus = getProductIds(Platform.OS as 'ios' | 'android')
+        console.log('[IAP] Fetching products:', skus)
+
+        const productList = await RNIap.getProducts({ skus })
+        console.log('[IAP] Loaded products:', productList.length)
+
+        if (mounted) {
+          setProducts(productList)
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('[IAP] Initialization error:', error)
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    initIAP()
+
+    return () => {
+      mounted = false
+      RNIap.endConnection()
+    }
+  }, [])
 
   const buy = useCallback(
     async (sku: string) => {
-      Alert.alert('Not Available', 'In-app purchases are temporarily disabled.')
-      console.log('[IAP STUB] Purchase requested:', sku)
+      Alert.alert('Coming Soon', 'In-app purchases will be enabled once products are created in Play Console.')
+      console.log('[IAP] Purchase requested:', sku)
     },
     [user?.id]
   )
