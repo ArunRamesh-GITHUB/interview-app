@@ -105,11 +105,6 @@ export function useIAP(user?: User) {
 
   const buy = useCallback(
     async (sku: string) => {
-      if (!user?.id) {
-        Alert.alert('Error', 'You must be logged in to make a purchase')
-        return
-      }
-
       if (purchasing) {
         console.log('[IAP] Purchase already in progress')
         return
@@ -131,7 +126,7 @@ export function useIAP(user?: User) {
         }
       }
     },
-    [user?.id, purchasing]
+    [purchasing]
   )
 
   return {
