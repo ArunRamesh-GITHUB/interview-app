@@ -92,7 +92,7 @@ android {
         applicationId 'com.nailit.interview'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 56
+        versionCode 59
         versionName "1.0.0"
 
         // Tell react-native-iap to use Play Store variant (not Amazon)
