@@ -119,10 +119,8 @@ export function useIAP(user?: User) {
         console.log('[IAP] Requesting purchase:', sku)
         setPurchasing(true)
 
-        await RNIap.requestPurchase({
-          sku,
-          andDangerouslyFinishTransactionAutomatically: false
-        })
+        // Use productId parameter (works for both v13 and v14)
+        await RNIap.requestPurchase({ productId: sku })
       } catch (err: any) {
         console.error('[IAP] Purchase request failed:', err)
         setPurchasing(false)
