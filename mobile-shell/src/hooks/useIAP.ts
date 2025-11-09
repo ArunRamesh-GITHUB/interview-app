@@ -35,17 +35,22 @@ export function useIAP(user?: User) {
 
         // Fetch products
         const skus = getProductIds(Platform.OS as 'ios' | 'android')
-        console.log('[IAP] Fetching products:', skus)
+        console.log('[IAP] Platform:', Platform.OS)
+        console.log('[IAP] Requesting products with SKUs:', JSON.stringify(skus))
 
         const productList = await RNIap.getProducts({ skus })
-        console.log('[IAP] Loaded products:', productList.length, productList)
+        console.log('[IAP] Successfully loaded', productList.length, 'products')
+        console.log('[IAP] Product details:', JSON.stringify(productList, null, 2))
 
         if (mounted) {
           setProducts(productList)
           setLoading(false)
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('[IAP] Initialization error:', error)
+        console.error('[IAP] Error code:', error?.code)
+        console.error('[IAP] Error message:', error?.message)
+        console.error('[IAP] Error details:', JSON.stringify(error, null, 2))
         if (mounted) {
           setLoading(false)
         }

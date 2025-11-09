@@ -11,10 +11,10 @@
 
 export const IAP = {
   ios: {
-    STARTER: 'com.nailit.pack.starter',  // $9.99  => 120 tokens
-    PLUS: 'com.nailit.pack.plus',        // $19.99 => 250 tokens
-    PRO: 'com.nailit.pack.pro',          // $39.99 => 480 tokens
-    POWER: 'com.nailit.pack.power',      // $79.99 => 1000 tokens
+    STARTER: 'com.nailit.starter.120',  // $9.99  => 120 tokens
+    PLUS: 'com.nailit.plus.250',        // $19.99 => 250 tokens
+    PRO: 'com.nailit.pro.480',          // $39.99 => 480 tokens
+    POWER: 'com.nailit.power.1000',     // $79.99 => 1000 tokens
   },
   android: {
     STARTER: 'pack_starter_120',  // $9.99  => 120 tokens
