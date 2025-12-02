@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Purchases } from '@revenuecat/purchases-js'
 import { isMobileApp, requestNativePurchase } from '../utils/mobilebridge.js'
+import { useAuth } from '../lib/auth'
 
 const tokenExplainer = [
   "1 token = 1 minute of Practice (non-Realtime voice).",
@@ -11,9 +12,15 @@ const tokenExplainer = [
 ]
 
 export default function PaidPlans() {
+  const { user, loading: authLoading } = useAuth() // Get user from auth context
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<any[]>([])
   const [busy, setBusy] = useState<string | null>(null)
+
+  // Debug: Log user state changes
+  useEffect(() => {
+    console.log('👤 PaidPlans - User state changed:', user ? `Logged in - ID: ${user.id}, Email: ${user.email}` : 'NOT LOGGED IN', 'Auth loading:', authLoading)
+  }, [user, authLoading])
 
   useEffect(() => {
     (async () => {
@@ -46,32 +53,32 @@ export default function PaidPlans() {
               identifier: 'tokens_starter',
               storeProduct: {
                 title: 'Starter Plan',
-                priceString: '$9.99/month',
-                description: '120 tokens per month'
+                priceString: '£9.99',
+                description: '120 tokens'
               }
             },
             {
               identifier: 'tokens_plus',
               storeProduct: {
                 title: 'Plus Plan',
-                priceString: '$19.99/month',
-                description: '250 tokens per month'
+                priceString: '£19.99',
+                description: '250 tokens'
               }
             },
             {
               identifier: 'tokens_pro',
               storeProduct: {
                 title: 'Pro Plan',
-                priceString: '$39.99/month',
-                description: '480 tokens per month'
+                priceString: '£39.99',
+                description: '480 tokens'
               }
             },
             {
               identifier: 'tokens_power',
               storeProduct: {
                 title: 'Power Plan',
-                priceString: '$79.99/month',
-                description: '1000 tokens per month'
+                priceString: '£79.99',
+                description: '1000 tokens'
               }
             }
           ]
@@ -91,9 +98,18 @@ export default function PaidPlans() {
   async function buy(p: any) {
     // If in mobile app, use native purchase flow
     if (isMobileApp()) {
-      const success = requestNativePurchase(p.identifier)
+      // Pass user ID so tokens can be granted to the correct account
+      const userIdToSend = user?.id || null
+      console.log('🛒 Purchase request - Product:', p.identifier)
+      console.log('👤 User state:', user ? `Logged in - ID: ${user.id}, Email: ${user.email}` : 'NOT LOGGED IN')
+      console.log('📤 Sending userId to mobile:', userIdToSend || 'null')
+      
+      const success = requestNativePurchase(p.identifier, userIdToSend)
       if (success) {
-        console.log('Requested native purchase for:', p.identifier)
+        console.log('✅ Requested native purchase for:', p.identifier, 'User ID:', userIdToSend || 'none')
+        if (!userIdToSend) {
+          console.warn('⚠️ WARNING: No userId being sent! Make sure you are logged in.')
+        }
         return
       }
     }
@@ -115,7 +131,7 @@ export default function PaidPlans() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
-      <h1 className="text-3xl font-bold mb-2">Buy tokens</h1>
+      <h1 className="text-3xl font-bold mb-2">Upgrade your plan</h1>
       <p className="text-gray-600 mb-8">
         Purchase token packs to use with Practice and Realtime features.
       </p>

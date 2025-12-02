@@ -76,6 +76,88 @@ export function useTokenBalance() {
     fetchBalance()
   }, [user])
 
+  // Listen for purchase completion messages from mobile app
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Check if we're in a React Native WebView
+    const isWebView = !!(window as any).ReactNativeWebView;
+    if (!isWebView) return;
+
+    console.log('📱 useTokenBalance: Setting up purchase listener...');
+
+    // Expose global function for token updates
+    const updateBalance = (tokensToAdd: number) => {
+      console.log(`💰💰💰 useTokenBalance: Adding ${tokensToAdd} tokens`);
+      setTokenData((prev) => {
+        if (!prev) {
+          // If no data yet, fetch it first
+          fetchBalance();
+          return prev;
+        }
+        const newBalance = prev.balanceTokens + tokensToAdd;
+        console.log(`💰💰💰 useTokenBalance: Balance updated ${prev.balanceTokens} → ${newBalance}`);
+        return {
+          ...prev,
+          balanceTokens: newBalance
+        };
+      });
+    };
+
+    (window as any).__TOKEN_BALANCE_UPDATE__ = updateBalance;
+
+    const handleCustomEvent = (event: CustomEvent) => {
+      if (event.detail?.tokens && event.detail?.isTestProduct) {
+        console.log(`💰 useTokenBalance: Custom event received: +${event.detail.tokens} tokens`);
+        updateBalance(event.detail.tokens);
+      }
+    };
+
+    const handleStorageEvent = (event: StorageEvent) => {
+      if (event.key === 'purchase_tokens' && event.newValue) {
+        try {
+          const data = JSON.parse(event.newValue);
+          if (data.tokens) {
+            console.log(`💰 useTokenBalance: Storage event received: +${data.tokens} tokens`);
+            updateBalance(data.tokens);
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    };
+
+    // Listen for custom purchaseCompleted events
+    window.addEventListener('purchaseCompleted', handleCustomEvent as EventListener);
+    // Listen for storage events
+    window.addEventListener('storage', handleStorageEvent);
+    
+    // Also poll localStorage as a fallback
+    const pollInterval = setInterval(() => {
+      try {
+        const stored = localStorage.getItem('purchase_tokens');
+        if (stored) {
+          const data = JSON.parse(stored);
+          // Only process if recent (within last 30 seconds)
+          if (data.timestamp && Date.now() - data.timestamp < 30000 && data.tokens) {
+            console.log(`💰💰💰 useTokenBalance: Polled localStorage: +${data.tokens} tokens`);
+            updateBalance(data.tokens);
+            localStorage.removeItem('purchase_tokens'); // Clear after processing
+          }
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }, 500); // Poll every 500ms
+    
+    return () => {
+      window.removeEventListener('purchaseCompleted', handleCustomEvent as EventListener);
+      window.removeEventListener('storage', handleStorageEvent);
+      clearInterval(pollInterval);
+      delete (window as any).__TOKEN_BALANCE_UPDATE__;
+    };
+  }, [user]);
+
   const refetch = () => {
     fetchBalance()
   }

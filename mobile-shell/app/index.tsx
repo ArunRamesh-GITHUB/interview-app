@@ -17,6 +17,7 @@ function openAppSettings(): void {
 export default function Index() {
   const webRef = useRef<WebView>(null);
   const { granted, loading, error, requestPermission, resetAudioSession } = useAudioPermissions();
+  const pendingTokenUpdate = useRef<{ tokens: number; attempts: number } | null>(null);
 
   if (loading) {
     return (
@@ -84,24 +85,161 @@ export default function Index() {
     );
   }
 
+  // Helper function to inject token update script
+  const injectTokenUpdate = (tokenAmount: number) => {
+    if (!webRef.current) return;
+    
+    console.log(`💰💰💰 Injecting token update script: +${tokenAmount} tokens`);
+    webRef.current.injectJavaScript(`
+      (function() {
+        try {
+          // Send confirmation message back to React Native
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'TOKEN_UPDATE_SCRIPT_EXECUTED',
+              tokens: ${tokenAmount},
+              timestamp: Date.now()
+            }));
+          }
+          
+          console.log('💰💰💰 WEBVIEW: Token update script executing!');
+          console.log('💰💰💰 WEBVIEW: Adding ${tokenAmount} tokens');
+          
+          let updateSuccess = false;
+          
+          // Method 1: Try both update functions (TokenProvider and useTokenBalance)
+          let functionFound = false;
+          
+          if (typeof window.__TOKEN_PROVIDER_UPDATE__ === 'function') {
+            console.log('✅✅✅ WEBVIEW: Calling __TOKEN_PROVIDER_UPDATE__(${tokenAmount})');
+            try {
+              window.__TOKEN_PROVIDER_UPDATE__(${tokenAmount});
+              updateSuccess = true;
+              functionFound = true;
+            } catch(e) {
+              console.error('❌ WEBVIEW: Error calling __TOKEN_PROVIDER_UPDATE__:', e);
+            }
+          }
+          
+          if (typeof window.__TOKEN_BALANCE_UPDATE__ === 'function') {
+            console.log('✅✅✅ WEBVIEW: Calling __TOKEN_BALANCE_UPDATE__(${tokenAmount})');
+            try {
+              window.__TOKEN_BALANCE_UPDATE__(${tokenAmount});
+              updateSuccess = true;
+              functionFound = true;
+            } catch(e) {
+              console.error('❌ WEBVIEW: Error calling __TOKEN_BALANCE_UPDATE__:', e);
+            }
+          }
+          
+          if (updateSuccess && window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'TOKEN_UPDATE_SUCCESS',
+              tokens: ${tokenAmount},
+              method: 'direct_function_call'
+            }));
+          }
+          
+          if (!functionFound) {
+            console.warn('⚠️⚠️⚠️ WEBVIEW: Neither __TOKEN_PROVIDER_UPDATE__ nor __TOKEN_BALANCE_UPDATE__ found!');
+            // Aggressive retry - functions might not be ready yet
+            let retryCount = 0;
+            const maxRetries = 10;
+            const retryInterval = setInterval(() => {
+              retryCount++;
+              let found = false;
+              
+              if (typeof window.__TOKEN_PROVIDER_UPDATE__ === 'function') {
+                console.log('✅✅✅ WEBVIEW: Retry ' + retryCount + ' - calling __TOKEN_PROVIDER_UPDATE__(${tokenAmount})');
+                try {
+                  window.__TOKEN_PROVIDER_UPDATE__(${tokenAmount});
+                  updateSuccess = true;
+                  found = true;
+                } catch(e) {
+                  console.error('❌ WEBVIEW: Error in retry:', e);
+                }
+              }
+              
+              if (typeof window.__TOKEN_BALANCE_UPDATE__ === 'function') {
+                console.log('✅✅✅ WEBVIEW: Retry ' + retryCount + ' - calling __TOKEN_BALANCE_UPDATE__(${tokenAmount})');
+                try {
+                  window.__TOKEN_BALANCE_UPDATE__(${tokenAmount});
+                  updateSuccess = true;
+                  found = true;
+                } catch(e) {
+                  console.error('❌ WEBVIEW: Error in retry:', e);
+                }
+              }
+              
+              if (found && window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'TOKEN_UPDATE_SUCCESS',
+                  tokens: ${tokenAmount},
+                  method: 'retry_' + retryCount
+                }));
+                clearInterval(retryInterval);
+              } else if (retryCount >= maxRetries) {
+                console.warn('⚠️ WEBVIEW: Max retries reached, functions still not available');
+                clearInterval(retryInterval);
+              }
+            }, 200); // Retry every 200ms
+          }
+          
+          // Method 2: Dispatch custom event (ALWAYS DO THIS)
+          try {
+            const event = new CustomEvent('purchaseCompleted', { 
+              detail: { tokens: ${tokenAmount}, isTestProduct: true }
+            });
+            window.dispatchEvent(event);
+            console.log('✅ WEBVIEW: Dispatched purchaseCompleted event');
+          } catch(e) {
+            console.error('❌ WEBVIEW: Error dispatching event:', e);
+          }
+          
+          // Method 3: Trigger localStorage update (ALWAYS DO THIS - polling will catch it)
+          try {
+            const purchaseData = { tokens: ${tokenAmount}, timestamp: Date.now() };
+            localStorage.setItem('purchase_tokens', JSON.stringify(purchaseData));
+            console.log('✅ WEBVIEW: Set localStorage purchase_tokens');
+            
+            // Manually trigger storage event
+            window.dispatchEvent(new StorageEvent('storage', { 
+              key: 'purchase_tokens', 
+              newValue: JSON.stringify(purchaseData),
+              oldValue: null
+            }));
+            console.log('✅ WEBVIEW: Dispatched storage event');
+          } catch(e) {
+            console.error('❌ WEBVIEW: Error with localStorage:', e);
+          }
+          
+          // Method 4: Force refresh token balance by calling refresh function if available
+          if (window.__REFRESH_TOKENS__) {
+            console.log('✅ WEBVIEW: Calling __REFRESH_TOKENS__');
+            try {
+              window.__REFRESH_TOKENS__();
+            } catch(e) {
+              console.error('❌ WEBVIEW: Error calling refresh:', e);
+            }
+          }
+          
+          console.log('✅✅✅ WEBVIEW: Token update script completed! Success:', updateSuccess);
+        } catch(e) {
+          console.error('❌❌❌ WEBVIEW: Error in token update script:', e);
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'TOKEN_UPDATE_ERROR',
+              error: e.message || String(e)
+            }));
+          }
+        }
+      })();
+      true;
+    `);
+  };
+
   return (
     <View style={styles.container}>
-      {/* Demo Navigation Bar */}
-      <View style={styles.demoNav}>
-        <TouchableOpacity
-          style={styles.demoNavButton}
-          onPress={() => router.push('/live-interview')}
-        >
-          <Text style={styles.demoNavButtonText}>Demo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.demoNavButton}
-          onPress={() => router.push('/paywall')}
-        >
-          <Text style={styles.demoNavButtonText}>Paywall</Text>
-        </TouchableOpacity>
-      </View>
-
       <WebView
         ref={webRef}
         source={{ uri: WEB_URL }}
@@ -134,6 +272,19 @@ export default function Index() {
             type: 'NATIVE_AUDIO_READY',
             permissions: 'granted'
           }));
+          
+          // If there's a pending token update, inject it now that WebView is ready
+          if (pendingTokenUpdate.current && webRef.current) {
+            const { tokens, attempts } = pendingTokenUpdate.current;
+            if (attempts < 5) { // Retry up to 5 times
+              console.log(`💰💰💰 WebView loaded - injecting token update (attempt ${attempts + 1}): +${tokens} tokens`);
+              injectTokenUpdate(tokens);
+              pendingTokenUpdate.current.attempts += 1;
+            } else {
+              console.warn('⚠️ Max attempts reached for token update');
+              pendingTokenUpdate.current = null;
+            }
+          }
         }}
         onNavigationStateChange={(navState) => {
           // Check if we're returning from paywall
@@ -158,17 +309,100 @@ export default function Index() {
             // Handle purchase messages from web app
             if (message.type === 'REQUEST_PURCHASE') {
               console.log("Web app requesting purchase:", message.productId);
-              // Navigate to native paywall
-              router.push({
-                pathname: '/paywall',
-                params: {
+              
+              // Import purchase service and product ID converter
+              Promise.all([
+                import('../src/lib/purchaseService'),
+                import('../src/config/purchases')
+              ]).then(([{ purchaseService }, { convertWebProductIdToNative }]) => {
+                // Convert web product ID to platform-specific product ID
+                const nativeProductId = convertWebProductIdToNative(message.productId);
+                console.log(`🔄 Converting ${message.productId} → ${nativeProductId} for ${Platform.OS}`);
+                
+                // Try to get userId from WebView message
+                let userId = message.userId || undefined;
+                
+                // Log the full message to debug
+                console.log('📨 Full purchase message:', JSON.stringify(message));
+                console.log('👤 Extracted userId from message:', userId || 'none');
+                
+                // For test products, userId is optional - server will use first available account
+                // Initialize and directly trigger native purchase sheet
+                purchaseService.initialize(userId).then(() => {
+                  console.log('✅ IAP initialized, triggering purchase for:', nativeProductId);
+                  if (userId) {
+                    console.log('👤 User ID:', userId);
+                  } else {
+                    console.log('ℹ️ No userId - server will use test account for test products');
+                  }
+                  // This will show the native Apple/Android purchase sheet
+                  return purchaseService.purchasePackage(nativeProductId);
+                }).then(async (result) => {
+                  console.log('✅ Purchase successful:', result);
+                  
+                  // Get token amount for this product
+                  const { getTokenAmountFromProduct } = await import('../src/lib/purchaseService');
+                  const tokenAmount = getTokenAmountFromProduct(result.productIdentifier);
+                  const isTestProduct = result.productIdentifier.startsWith('com.yourname.test.');
+                  
+                  // Notify web view of success with token amount
+                  const purchaseMessage = {
+                    type: 'PURCHASE_COMPLETED',
+                    productId: message.productId,
+                    transactionId: result.transactionId,
+                    success: true,
+                    tokens: tokenAmount,
+                    isTestProduct: isTestProduct
+                  };
+                  
+                  // Send via postMessage
+                  webRef.current?.postMessage(JSON.stringify(purchaseMessage));
+                  
+                  // Also inject JavaScript to directly update token balance (for test products)
+                  if (isTestProduct) {
+                    // Store pending update - will be injected when WebView finishes loading
+                    pendingTokenUpdate.current = { tokens: tokenAmount, attempts: 0 };
+                    console.log(`💰💰💰 Stored pending token update: +${tokenAmount} tokens`);
+                    
+                    // Try immediate injection (in case WebView is already loaded)
+                    setTimeout(() => {
+                      if (webRef.current) {
+                        injectTokenUpdate(tokenAmount);
+                      }
+                    }, 1000); // Wait 1 second for purchase sheet to close
+                  }
+                  
+                  console.log(`💰 Purchase complete: ${tokenAmount} tokens (test: ${isTestProduct})`);
+                }).catch((error) => {
+                  console.error('❌ Purchase failed:', error);
+                  // Only notify if not user cancellation
+                  if (error.message !== 'Purchase cancelled by user') {
+                    webRef.current?.postMessage(JSON.stringify({
+                      type: 'PURCHASE_FAILED',
                   productId: message.productId,
-                  fromWebView: 'true'
+                      error: error.message
+                    }));
                 }
+                });
+              }).catch((importError) => {
+                console.error('Failed to import purchase modules:', importError);
               });
               return;
             }
 
+            // Handle token update confirmation messages from WebView
+            if (message.type === 'TOKEN_UPDATE_SCRIPT_EXECUTED') {
+              console.log(`✅✅✅ WebView confirmed: Token update script executed! +${message.tokens} tokens`);
+            } else if (message.type === 'TOKEN_UPDATE_SUCCESS') {
+              console.log(`🎉🎉🎉 TOKEN UPDATE SUCCESS via ${message.method}! +${message.tokens} tokens`);
+              // Clear pending update on success
+              if (pendingTokenUpdate.current) {
+                pendingTokenUpdate.current = null;
+              }
+            } else if (message.type === 'TOKEN_UPDATE_ERROR') {
+              console.error(`❌❌❌ Token update error from WebView:`, message.error);
+            }
+            
             // Handle audio-related messages from the web app
             if (message.type === 'AUDIO_ERROR') {
               console.error("Audio error from web:", message.error);

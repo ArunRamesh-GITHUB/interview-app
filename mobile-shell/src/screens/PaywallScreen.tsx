@@ -9,8 +9,8 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native'
-import { Offerings, PurchasesPackage } from 'react-native-purchases'
-import { purchaseService, getTokenAmountFromProduct, isSubscriptionProduct } from '../lib/purchaseService'
+import { Product } from 'react-native-iap'
+import { purchaseService, getTokenAmountFromProduct } from '../lib/purchaseService'
 
 interface PaywallScreenProps {
   navigation: any
@@ -25,55 +25,34 @@ interface PaywallScreenProps {
   }
 }
 
-interface TabButtonProps {
-  title: string
-  active: boolean
-  onPress: () => void
-}
-
-const TabButton: React.FC<TabButtonProps> = ({ title, active, onPress }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={{
-      flex: 1,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderBottomWidth: 2,
-      borderBottomColor: active ? '#000' : 'transparent',
-    }}
-  >
-    <Text style={{
-      fontSize: 16,
-      fontWeight: active ? '600' : '400',
-      color: active ? '#000' : '#666',
-    }}>
-      {title}
-    </Text>
-  </TouchableOpacity>
-)
-
 interface PackageCardProps {
-  package: PurchasesPackage
-  onPurchase: (pkg: PurchasesPackage) => void
+  product: Product
+  onPurchase: (product: Product) => void
   purchasing: boolean
 }
 
-// Helper function to get display name from package identifier
-const getDisplayName = (identifier: string): string => {
-  const nameMap: { [key: string]: string } = {
-    'starter': 'Starter Plan',
-    'plus': 'Plus Plan',
-    'pro': 'Pro Plan',
-    'power': 'Power Plan',
-    'monthly': 'Starter Plan', // Fallback for your current "monthly" identifier
+const PackageCard: React.FC<PackageCardProps> = ({ product, onPurchase, purchasing }) => {
+  const tokenAmount = getTokenAmountFromProduct(product.productId)
+  
+  // Clean price - aggressively remove all month references
+  let cleanPrice = (product.localizedPrice || '').trim()
+  
+  // Log original price for debugging
+  if (__DEV__) {
+    console.log(`[Paywall] Product ${product.productId} - Original price: "${cleanPrice}"`)
   }
-  return nameMap[identifier] || identifier.charAt(0).toUpperCase() + identifier.slice(1)
-}
-
-const PackageCard: React.FC<PackageCardProps> = ({ package: pkg, onPurchase, purchasing }) => {
-  const tokenAmount = getTokenAmountFromProduct(pkg.product.identifier)
-  const isSubscription = isSubscriptionProduct(pkg.product.identifier)
-  const displayName = getDisplayName(pkg.identifier)
+  
+  // Remove all variations of /month, per month, monthly
+  cleanPrice = cleanPrice
+    .split('/')[0]                    // Remove everything after /
+    .split('per month')[0]            // Remove "per month"
+    .split('per mo')[0]               // Remove "per mo"
+    .split('monthly')[0]              // Remove "monthly"
+    .trim()
+  
+  if (__DEV__) {
+    console.log(`[Paywall] Product ${product.productId} - Cleaned price: "${cleanPrice}"`)
+  }
 
   return (
     <View style={{
@@ -86,63 +65,58 @@ const PackageCard: React.FC<PackageCardProps> = ({ package: pkg, onPurchase, pur
       shadowOpacity: 0.1,
       shadowRadius: 4,
       elevation: 3,
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
     }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#000', marginBottom: 4 }}>
-            {displayName}
+            {tokenAmount} tokens
           </Text>
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>
-            {tokenAmount} tokens{isSubscription ? ' per month' : ''}
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#000' }}>
+            {cleanPrice}
           </Text>
-          {pkg.product.description && (
-            <Text style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>
-              {pkg.product.description}
+        </View>
+        <TouchableOpacity
+          onPress={() => onPurchase(product)}
+          disabled={purchasing}
+          style={{
+            backgroundColor: purchasing ? '#ccc' : '#000',
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            borderRadius: 8,
+            minWidth: 80,
+            alignItems: 'center',
+          }}
+        >
+          {purchasing ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
+              Buy
             </Text>
           )}
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: '#000', marginBottom: 8 }}>
-            {pkg.product.priceString}
-          </Text>
-          <TouchableOpacity
-            onPress={() => onPurchase(pkg)}
-            disabled={purchasing}
-            style={{
-              backgroundColor: purchasing ? '#ccc' : '#007AFF',
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 8,
-              minWidth: 80,
-              alignItems: 'center',
-            }}
-          >
-            {purchasing ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
-                {isSubscription ? 'Subscribe' : 'Buy'}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   )
 }
 
 export default function PaywallScreen({ navigation, route }: PaywallScreenProps) {
-  const [activeTab, setActiveTab] = useState<'subscriptions' | 'topups'>('subscriptions')
-  const [offerings, setOfferings] = useState<Offerings | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState<string | null>(null)
   const [currentTokens, setCurrentTokens] = useState(route?.params?.currentTokens || 0)
-  const [isSubscribed, setIsSubscribed] = useState(false)
 
   const supabaseUserId = route?.params?.supabaseUserId
 
   useEffect(() => {
     initializePurchases()
+    
+    // Cleanup on unmount
+    return () => {
+      // Cleanup handled by purchaseConfig
+    }
   }, [])
 
   const initializePurchases = async () => {
@@ -152,22 +126,24 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
       // Initialize with user ID if available
       await purchaseService.initialize(supabaseUserId)
       
-      // Get offerings and subscription status
-      const [offeringsData, subscriptionStatus] = await Promise.all([
-        purchaseService.getOfferings(),
-        purchaseService.isSubscribed()
-      ])
+      // Get products
+      const offeringsData = await purchaseService.getOfferings()
       
-      setOfferings(offeringsData)
-      setIsSubscribed(subscriptionStatus)
-    } catch (error) {
+      // Sort products by token amount (ascending)
+      const sortedProducts = [...offeringsData.products].sort((a, b) => {
+        const tokensA = getTokenAmountFromProduct(a.productId)
+        const tokensB = getTokenAmountFromProduct(b.productId)
+        return tokensA - tokensB
+      })
+      
+      setProducts(sortedProducts)
+    } catch (error: any) {
       console.error('Failed to initialize purchases:', error)
-      console.error('Error details:', JSON.stringify(error, null, 2))
       Alert.alert(
         'Purchase Setup Issue',
-        'RevenueCat is not fully configured yet. Please ensure:\n\n1. Products are set up in RevenueCat dashboard\n2. Offerings are created\n3. App is configured for testing\n\nThis is normal during initial setup.',
+        'In-App Purchases are not fully configured yet. Please ensure:\n\n1. Products are set up in App Store Connect / Google Play Console\n2. Products are configured correctly\n3. App is configured for testing\n\nThis is normal during initial setup.',
         [
-          { text: 'OK', onPress: () => navigation.goBack() }
+          { text: 'OK', onPress: () => navigation?.goBack?.() }
         ]
       )
     } finally {
@@ -175,35 +151,45 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
     }
   }
 
-  const handlePurchase = async (pkg: PurchasesPackage) => {
+  const handlePurchase = async (product: Product) => {
     try {
-      setPurchasing(pkg.identifier)
+      setPurchasing(product.productId)
 
-      const result = await purchaseService.purchasePackage(pkg.identifier)
-
-      // Refresh subscription status and token balance
-      await refreshUserData()
+      const result = await purchaseService.purchasePackage(product.productId)
 
       const tokenAmount = getTokenAmountFromProduct(result.productIdentifier)
-      const isSubscription = isSubscriptionProduct(result.productIdentifier)
+      
+      // FOR TEST PRODUCTS: Increment tokens locally immediately (server bypassed)
+      const isTestProduct = product.productId.startsWith('com.yourname.test.')
+      if (isTestProduct) {
+        // Update UI immediately - increment token count
+        setCurrentTokens(prev => {
+          const newTotal = prev + tokenAmount
+          console.log(`💰 TEST MODE: Tokens updated! ${prev} → ${newTotal} (+${tokenAmount})`)
+          return newTotal
+        })
+      } else {
+        // For production: Refresh from server
+        await refreshUserData()
+      }
 
       Alert.alert(
         'Purchase Successful!',
-        `${tokenAmount} tokens ${isSubscription ? 'will be added monthly' : 'added to your account'}`,
+        `${tokenAmount} tokens added to your account`,
         [
           {
             text: 'OK',
             onPress: () => {
               // Call onPurchaseComplete if provided
               route?.params?.onPurchaseComplete?.()
-              navigation.goBack()
+              navigation?.goBack?.()
             }
           }
         ]
       )
     } catch (error: any) {
       console.error('Purchase failed:', error)
-      if (!error.userCancelled) {
+      if (error.message !== 'Purchase cancelled by user') {
         Alert.alert('Purchase Failed', error.message || 'Please try again.')
       }
     } finally {
@@ -227,23 +213,12 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
 
   const refreshUserData = async () => {
     try {
-      const subscriptionStatus = await purchaseService.isSubscribed()
-      setIsSubscribed(subscriptionStatus)
-      
       // TODO: Fetch updated token balance from your API
       // const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/wallet`, ...)
       // setCurrentTokens(response.tokens)
     } catch (error) {
       console.error('Failed to refresh user data:', error)
     }
-  }
-
-  const getPackagesByType = (isSubscription: boolean) => {
-    if (!offerings?.current) return []
-    
-    return offerings.current.availablePackages.filter(pkg => 
-      isSubscriptionProduct(pkg.product.identifier) === isSubscription
-    )
   }
 
   if (loading) {
@@ -265,10 +240,10 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
       {/* Header */}
       <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity onPress={() => navigation?.goBack?.()}>
             <Text style={{ fontSize: 16, color: '#007AFF' }}>← Back</Text>
           </TouchableOpacity>
-          <Text style={{ fontSize: 18, fontWeight: '600' }}>Get Tokens</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600' }}>Upgrade your plan</Text>
           <View style={{ width: 50 }} />
         </View>
         
@@ -283,67 +258,28 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
           <Text style={{ fontSize: 24, fontWeight: '700', color: '#000' }}>
             {currentTokens} tokens
           </Text>
-          {isSubscribed && (
-            <Text style={{ fontSize: 12, color: '#007AFF', marginTop: 4 }}>
-              ✓ Subscribed
-            </Text>
-          )}
         </View>
-      </View>
-
-      {/* Tabs */}
-      <View style={{ backgroundColor: '#fff', flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
-        <TabButton
-          title="Subscriptions"
-          active={activeTab === 'subscriptions'}
-          onPress={() => setActiveTab('subscriptions')}
-        />
-        <TabButton
-          title="Token Packs"
-          active={activeTab === 'topups'}
-          onPress={() => setActiveTab('topups')}
-        />
       </View>
 
       {/* Content */}
       <ScrollView style={{ flex: 1, padding: 16 }}>
-        {activeTab === 'subscriptions' && (
-          <View>
-            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#333' }}>
-              Monthly Subscriptions
-            </Text>
-            <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
-              Get tokens automatically every month. Cancel anytime.
-            </Text>
-            {getPackagesByType(true).map(pkg => (
-              <PackageCard
-                key={pkg.identifier}
-                package={pkg}
-                onPurchase={handlePurchase}
-                purchasing={purchasing === pkg.identifier}
-              />
-            ))}
-          </View>
-        )}
-
-        {activeTab === 'topups' && (
-          <View>
-            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#333' }}>
-              One-Time Token Packs
-            </Text>
-            <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
-              Buy tokens once and use them anytime.
-            </Text>
-            {getPackagesByType(false).map(pkg => (
-              <PackageCard
-                key={pkg.identifier}
-                package={pkg}
-                onPurchase={handlePurchase}
-                purchasing={purchasing === pkg.identifier}
-              />
-            ))}
-          </View>
-        )}
+        <View>
+          <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#333' }}>
+            NailIT token packs
+          </Text>
+          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+            Purchase token packs to use with Practice and Realtime features.
+          </Text>
+          
+          {products.map(product => (
+            <PackageCard
+              key={product.productId}
+              product={product}
+              onPurchase={handlePurchase}
+              purchasing={purchasing === product.productId}
+            />
+          ))}
+        </View>
 
         {/* Restore Purchases Button */}
         <TouchableOpacity
@@ -361,7 +297,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
         {/* Footer Info */}
         <View style={{ paddingVertical: 20, alignItems: 'center' }}>
           <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', lineHeight: 16 }}>
-            Payment will be charged to your Google Play account. Subscriptions automatically renew unless cancelled at least 24 hours before the current period ends.
+            Payment will be charged to your {require('react-native').Platform.OS === 'ios' ? 'Apple' : 'Google Play'} account.
           </Text>
         </View>
       </ScrollView>

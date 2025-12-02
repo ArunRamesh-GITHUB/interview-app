@@ -1,20 +1,14 @@
-import Purchases from 'react-native-purchases'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Product, Purchase } from 'react-native-iap'
+import { purchaseConfig } from '../config/purchases'
 
-export async function initPurchases({ apiKey, appUserId }: { apiKey: string, appUserId?: string|null }) {
-  await Purchases.configure({ apiKey })
-  if (appUserId) {
-    const res = await Purchases.logIn(appUserId)
-  }
+export async function initPurchases({ appUserId }: { appUserId?: string | null }) {
+  await purchaseConfig.initialize(appUserId || undefined)
 }
 
-export async function getTokenPacks() {
-  const offerings = await Purchases.getOfferings()
-  return offerings.current?.availablePackages ?? []
+export async function getTokenPacks(): Promise<Product[]> {
+  return await purchaseConfig.getProducts()
 }
 
-export async function buyPack(pkg: any) {
-  const p = await Purchases.purchasePackage(pkg)
-  // Tokens will be granted by our server via webhook; here we can show a toast
-  return p
+export async function buyPack(productId: string): Promise<Purchase> {
+  return await purchaseConfig.purchaseProduct(productId)
 }

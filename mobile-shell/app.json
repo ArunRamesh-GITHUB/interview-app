@@ -12,7 +12,7 @@
       "backgroundColor": "#16181D"
     },
     "ios": {
-      "bundleIdentifier": "com.nailit.interview",
+      "bundleIdentifier": "com.yourname.test.interview",
       "buildNumber": "3",
       "config": {
         "usesNonExemptEncryption": false

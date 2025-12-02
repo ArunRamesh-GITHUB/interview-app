@@ -15,13 +15,19 @@ export function sendToMobile(message) {
 }
 
 // Request native purchase flow
-export function requestNativePurchase(productId) {
+export function requestNativePurchase(productId, userId = null) {
   if (isMobileApp()) {
-    return sendToMobile({
+    const message = {
       type: 'REQUEST_PURCHASE',
       productId: productId,
+      userId: userId, // Include user ID so tokens can be granted
       timestamp: Date.now()
-    });
+    };
+    console.log('📱 Sending purchase request to mobile:', JSON.stringify(message, null, 2));
+    if (!userId) {
+      console.warn('⚠️ WARNING: No userId in purchase request! User might not be logged in.');
+    }
+    return sendToMobile(message);
   }
   return false;
 }

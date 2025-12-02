@@ -65,6 +65,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkAuth()
   }, [])
 
+  // Expose user to window for mobile app access
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__REACT_AUTH_USER__ = user
+      if (user?.id) {
+        (window as any).__SUPA_USER_ID__ = user.id
+      }
+    }
+  }, [user])
+
   const value = {
     user,
     loading,

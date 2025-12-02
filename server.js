@@ -19,6 +19,7 @@ import { randomUUID } from 'crypto'
 import { TOKEN_RULES, PLAN_TOKEN_GRANTS, practiceSecondsToTokens, realtimeSecondsToTokens } from './config/pricing.js'
 import { mountRevenueCatWebhook } from './server/plugins/revenuecatWebhook.js'
 import { handleRevenueCatWebhook } from './server/routes/webhooks/revenuecat.js'
+import { verifyIAPReceipt } from './server/routes/iap.js'
 
 
 dotenv.config()
@@ -1692,6 +1693,13 @@ app.post('/api/affiliate/bind', authRequired, async (req, res) => {
 // ---------- RevenueCat Webhook ----------
 app.post('/webhooks/revenuecat', express.raw({ type: 'application/json' }), async (req, res) => {
   await handleRevenueCatWebhook(req, res, sbAdmin)
+})
+
+// ---------- IAP Receipt Verification ----------
+// Note: This endpoint accepts requests from mobile apps, so we don't require auth
+// but we'll try to get userId from session if available
+app.post('/api/iap/verify', express.json(), async (req, res) => {
+  await verifyIAPReceipt(req, res, sbAdmin)
 })
 
 // ---------- Health ----------

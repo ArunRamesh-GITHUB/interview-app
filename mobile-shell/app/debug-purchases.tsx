@@ -9,13 +9,14 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native'
+import { Purchase, Product } from 'react-native-iap'
 import { purchaseService } from '../src/lib/purchaseService'
 import { useRouter } from 'expo-router'
 
 export default function DebugPurchasesScreen() {
   const router = useRouter()
-  const [customerInfo, setCustomerInfo] = useState(null)
-  const [offerings, setOfferings] = useState(null)
+  const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -28,13 +29,13 @@ export default function DebugPurchasesScreen() {
       setRefreshing(true)
       await purchaseService.initialize()
 
-      const [customerData, offeringsData] = await Promise.all([
+      const [purchasesData, offeringsData] = await Promise.all([
         purchaseService.getCustomerInfo(),
         purchaseService.getOfferings()
       ])
 
-      setCustomerInfo(customerData)
-      setOfferings(offeringsData)
+      setPurchases(purchasesData as Purchase[])
+      setProducts(offeringsData.products)
     } catch (error) {
       console.error('Failed to load purchase data:', error)
       Alert.alert('Error', 'Failed to load purchase data')
@@ -47,7 +48,7 @@ export default function DebugPurchasesScreen() {
     try {
       setLoading(true)
       const restored = await purchaseService.restorePurchases()
-      setCustomerInfo(restored)
+      setPurchases(restored)
       Alert.alert('Success', 'Purchases restored successfully!')
     } catch (error: any) {
       console.error('Restore failed:', error)
@@ -57,34 +58,9 @@ export default function DebugPurchasesScreen() {
     }
   }
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  const getEntitlementStatus = () => {
-    if (!customerInfo?.entitlements?.active) return 'No active entitlements'
-
-    const activeEntitlements = Object.keys(customerInfo.entitlements.active)
-    if (activeEntitlements.length === 0) return 'No active entitlements'
-
-    return `Active: ${activeEntitlements.join(', ')}`
-  }
-
-  const getSubscriptionInfo = () => {
-    if (!customerInfo?.entitlements?.active) return null
-
-    const entitlements = customerInfo.entitlements.active
-    const premiumEntitlement = entitlements.premium || entitlements.pro || entitlements.plus || entitlements.starter
-
-    if (!premiumEntitlement) return null
-
-    return {
-      productId: premiumEntitlement.productIdentifier,
-      expirationDate: premiumEntitlement.expirationDate,
-      willRenew: premiumEntitlement.willRenew,
-      store: premiumEntitlement.store
-    }
+  const formatDate = (timestamp?: number) => {
+    if (!timestamp) return 'N/A'
+    return new Date(timestamp).toLocaleDateString()
   }
 
   return (
@@ -116,7 +92,7 @@ export default function DebugPurchasesScreen() {
       </View>
 
       <ScrollView style={{ flex: 1, padding: 16 }}>
-        {/* Entitlement Status */}
+        {/* Purchase Status */}
         <View style={{
           backgroundColor: '#fff',
           borderRadius: 12,
@@ -129,34 +105,31 @@ export default function DebugPurchasesScreen() {
           elevation: 3,
         }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12 }}>
-            Entitlement Status
+            Purchase Status
           </Text>
           <Text style={{ fontSize: 14, color: '#666', marginBottom: 8 }}>
-            {getEntitlementStatus()}
+            Active Purchases: {purchases.length}
           </Text>
-
-          {getSubscriptionInfo() && (
+          {purchases.length > 0 && (
             <View style={{ marginTop: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: '500', marginBottom: 4 }}>
-                Subscription Details:
-              </Text>
-              <Text style={{ fontSize: 12, color: '#666' }}>
-                Product: {getSubscriptionInfo()?.productId}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#666' }}>
-                Expires: {formatDate(getSubscriptionInfo()?.expirationDate)}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#666' }}>
-                Will Renew: {getSubscriptionInfo()?.willRenew ? 'Yes' : 'No'}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#666' }}>
-                Store: {getSubscriptionInfo()?.store}
-              </Text>
+              {purchases.map((purchase, index) => (
+                <View key={index} style={{ marginBottom: 8, padding: 8, backgroundColor: '#f8f9fa', borderRadius: 8 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '500' }}>
+                    Product: {purchase.productId}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#666' }}>
+                    Transaction ID: {purchase.transactionId}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#666' }}>
+                    Purchase Date: {formatDate(purchase.purchaseTime)}
+                  </Text>
+                </View>
+              ))}
             </View>
           )}
         </View>
 
-        {/* Customer Info */}
+        {/* Available Products */}
         <View style={{
           backgroundColor: '#fff',
           borderRadius: 12,
@@ -169,56 +142,26 @@ export default function DebugPurchasesScreen() {
           elevation: 3,
         }}>
           <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12 }}>
-            Customer Info
+            Available Products
           </Text>
-          {customerInfo ? (
-            <>
-              <Text style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                User ID: {customerInfo.originalAppUserId}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                First Seen: {formatDate(customerInfo.firstSeen)}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                Active Entitlements: {Object.keys(customerInfo.entitlements?.active || {}).length}
-              </Text>
-              <Text style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                Non-Subscriptions: {Object.keys(customerInfo.nonSubscriptionTransactions || {}).length}
-              </Text>
-            </>
-          ) : (
-            <Text style={{ fontSize: 14, color: '#666' }}>Loading...</Text>
-          )}
-        </View>
-
-        {/* Available Offerings */}
-        <View style={{
-          backgroundColor: '#fff',
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 16,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
-        }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12 }}>
-            Available Offerings
-          </Text>
-          {offerings?.current?.availablePackages ? (
-            offerings.current.availablePackages.map((pkg, index) => (
-              <View key={index} style={{ marginBottom: 8 }}>
+          {products.length > 0 ? (
+            products.map((product, index) => (
+              <View key={index} style={{ marginBottom: 8, padding: 8, backgroundColor: '#f8f9fa', borderRadius: 8 }}>
                 <Text style={{ fontSize: 14, fontWeight: '500' }}>
-                  {pkg.product.title || pkg.identifier}
+                  {product.title || product.productId}
                 </Text>
                 <Text style={{ fontSize: 12, color: '#666' }}>
-                  {pkg.product.priceString} - {pkg.product.identifier}
+                  {product.localizedPrice} - {product.productId}
                 </Text>
+                {product.description && (
+                  <Text style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                    {product.description}
+                  </Text>
+                )}
               </View>
             ))
           ) : (
-            <Text style={{ fontSize: 14, color: '#666' }}>No offerings available</Text>
+            <Text style={{ fontSize: 14, color: '#666' }}>No products available</Text>
           )}
         </View>
 
@@ -268,7 +211,7 @@ export default function DebugPurchasesScreen() {
           marginBottom: 32,
         }}>
           <Text style={{ fontSize: 12, color: '#666', fontFamily: 'monospace' }}>
-            {JSON.stringify({ customerInfo, offerings }, null, 2)}
+            {JSON.stringify({ purchases, products }, null, 2)}
           </Text>
         </View>
       </ScrollView>
