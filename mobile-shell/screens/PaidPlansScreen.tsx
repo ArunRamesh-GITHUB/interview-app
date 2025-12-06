@@ -1,11 +1,36 @@
-import React from "react";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Platform, Alert, ActivityIndicator } from "react-native";
+import { purchaseService } from "../src/lib/purchaseService";
+import { TOKEN_PACKS } from "../src/config/purchases";
+
+// Map our internal IDs to the product IDs defined in purchases.ts
+// Derived dynamically from the shared configuration
+const PRODUCT_IDS = Platform.select({
+  ios: {
+    starter: TOKEN_PACKS.starter.productIdIOS,
+    plus: TOKEN_PACKS.plus.productIdIOS,
+    pro: TOKEN_PACKS.pro.productIdIOS,
+    power: TOKEN_PACKS.power.productIdIOS,
+  },
+  android: {
+    starter: TOKEN_PACKS.starter.productIdAndroid,
+    plus: TOKEN_PACKS.plus.productIdAndroid,
+    pro: TOKEN_PACKS.pro.productIdAndroid,
+    power: TOKEN_PACKS.power.productIdAndroid,
+  }
+}) || {
+  // Fallback for web or unexpected platform
+  starter: TOKEN_PACKS.starter.productIdWeb,
+  plus: TOKEN_PACKS.plus.productIdWeb,
+  pro: TOKEN_PACKS.pro.productIdWeb,
+  power: TOKEN_PACKS.power.productIdWeb,
+};
 
 const plans = [
   { id: "starter", price: "£6.99", tokens: 120, blurb: "Light weekly practice" },
-  { id: "plus",    price: "£12.99", tokens: 250, blurb: "More practice + exports" },
-  { id: "pro",     price: "£29.99", tokens: 480, blurb: "Daily feel; mix usage" },
-  { id: "power",   price: "£44.99", tokens: 1000, blurb: "Heavy users" },
+  { id: "plus", price: "£12.99", tokens: 250, blurb: "More practice + exports" },
+  { id: "pro", price: "£29.99", tokens: 480, blurb: "Daily feel; mix usage" },
+  { id: "power", price: "£44.99", tokens: 1000, blurb: "Heavy users" },
 ];
 
 const bullets = [
@@ -17,11 +42,52 @@ const bullets = [
 ];
 
 export default function PaidPlansScreen() {
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const handlePurchase = async (planId: string) => {
+    // @ts-ignore
+    const productId = PRODUCT_IDS[planId];
+
+    if (!productId) {
+      Alert.alert("Error", "Product configuration missing for this plan.");
+      return;
+    }
+
+    try {
+      setLoadingId(planId);
+      console.log(`Starting purchase for ${planId} (${productId})...`);
+
+      // Initialize if needed (safe to call multiple times)
+      await purchaseService.initialize();
+
+      const result = await purchaseService.purchasePackage(productId);
+
+      console.log("Purchase result:", result);
+
+      Alert.alert(
+        "Success!",
+        `You have successfully purchased the ${planId} pack. tokens will be added shortly.`
+      );
+
+    } catch (error: any) {
+      console.error("Purchase failed:", error);
+
+      // Don't alert if user just cancelled
+      if (error.message?.includes("cancelled") || error.code === 'E_USER_CANCELLED') {
+        return;
+      }
+
+      Alert.alert("Purchase Failed", error.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Choose your plan</Text>
       <Text style={styles.subtitle}>Tokens let you mix Practice and Realtime however you like.</Text>
-      
+
       <View style={styles.plansContainer}>
         {plans.map(p => (
           <View key={p.id} style={styles.planCard}>
@@ -30,13 +96,15 @@ export default function PaidPlansScreen() {
             <Text style={styles.planBlurb}>{p.blurb}</Text>
             <Text style={styles.planTokens}>{p.tokens} tokens</Text>
             <TouchableOpacity
-              style={styles.continueButton}
-              onPress={() => {
-                // TODO: open native purchase or deeplink to web checkout
-                console.log(`Starting checkout for ${p.id}`);
-              }}
+              style={[styles.continueButton, loadingId === p.id && styles.disabledButton]}
+              onPress={() => handlePurchase(p.id)}
+              disabled={loadingId !== null}
             >
-              <Text style={styles.continueButtonText}>Continue</Text>
+              {loadingId === p.id ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.continueButtonText}>Continue</Text>
+              )}
             </TouchableOpacity>
           </View>
         ))}
@@ -119,6 +187,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     marginTop: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#6b7280',
   },
   continueButtonText: {
     color: '#ffffff',
