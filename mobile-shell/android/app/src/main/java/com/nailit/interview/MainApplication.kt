@@ -1,4 +1,4 @@
-package com.arun.mobileshell
+package com.nailit.interview
 
 import android.app.Application
 import android.content.res.Configuration
