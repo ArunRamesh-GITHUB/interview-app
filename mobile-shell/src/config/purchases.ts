@@ -5,7 +5,7 @@ import type { Product, Purchase, PurchaseError } from 'react-native-iap'
 // Token packs configuration
 // For testing: Use your own test bundle ID and product IDs
 // For production: Use com.nailit.pack.* product IDs
-const USE_TEST_IAP = true // Set to false when using production IAP
+const USE_TEST_IAP = false // Set to false when using production IAP
 
 const TOKEN_PACKS = USE_TEST_IAP ? {
   // TEST IAP Products - iOS uses test IDs, Android uses production IDs

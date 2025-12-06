@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from './auth'
 
 export interface TokenBalance {
@@ -72,6 +72,9 @@ export function useTokenBalance() {
     }
   }
 
+  // Track processed transactions to prevent duplicates (outside useEffect so it persists)
+  const processedTransactions = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     fetchBalance()
   }, [user])
@@ -85,18 +88,35 @@ export function useTokenBalance() {
     if (!isWebView) return;
 
     console.log('📱 useTokenBalance: Setting up purchase listener...');
-
-    // Expose global function for token updates
-    const updateBalance = (tokensToAdd: number) => {
-      console.log(`💰💰💰 useTokenBalance: Adding ${tokensToAdd} tokens`);
-      setTokenData((prev) => {
+    
+    // Expose global function for token updates (this is what the UI uses!)
+    const updateBalance = (tokensToAdd: number, transactionId?: string) => {
+      const txId = transactionId || `tx_${Date.now()}_${Math.random()}`;
+      
+      // Check if already processed
+      if (processedTransactions.current.has(txId)) {
+        console.log(`⚠️⚠️⚠️⚠️⚠️ useTokenBalance: Transaction already processed, skipping: ${txId}`);
+        console.log(`⚠️⚠️⚠️⚠️⚠️ Current processed set:`, Array.from(processedTransactions.current));
+        return;
+      }
+      
+      // Mark as processed IMMEDIATELY before any async operations
+      processedTransactions.current.add(txId);
+      if (processedTransactions.current.size > 100) {
+        const arr = Array.from(processedTransactions.current);
+        processedTransactions.current = new Set(arr.slice(-100));
+      }
+      
+      console.log(`💰💰💰💰💰 useTokenBalance: Adding ${tokensToAdd} tokens (tx: ${txId})`);
+      console.log(`💰💰💰💰💰 useTokenBalance: Processed transactions count: ${processedTransactions.current.size}`);
+      setTokenData((prev: TokenBalance | null) => {
         if (!prev) {
           // If no data yet, fetch it first
           fetchBalance();
           return prev;
         }
         const newBalance = prev.balanceTokens + tokensToAdd;
-        console.log(`💰💰💰 useTokenBalance: Balance updated ${prev.balanceTokens} → ${newBalance}`);
+        console.log(`💰💰💰💰💰 useTokenBalance: Balance updated ${prev.balanceTokens} → ${newBalance} (+${tokensToAdd})`);
         return {
           ...prev,
           balanceTokens: newBalance
@@ -105,55 +125,9 @@ export function useTokenBalance() {
     };
 
     (window as any).__TOKEN_BALANCE_UPDATE__ = updateBalance;
-
-    const handleCustomEvent = (event: CustomEvent) => {
-      if (event.detail?.tokens && event.detail?.isTestProduct) {
-        console.log(`💰 useTokenBalance: Custom event received: +${event.detail.tokens} tokens`);
-        updateBalance(event.detail.tokens);
-      }
-    };
-
-    const handleStorageEvent = (event: StorageEvent) => {
-      if (event.key === 'purchase_tokens' && event.newValue) {
-        try {
-          const data = JSON.parse(event.newValue);
-          if (data.tokens) {
-            console.log(`💰 useTokenBalance: Storage event received: +${data.tokens} tokens`);
-            updateBalance(data.tokens);
-          }
-        } catch (e) {
-          // Ignore parse errors
-        }
-      }
-    };
-
-    // Listen for custom purchaseCompleted events
-    window.addEventListener('purchaseCompleted', handleCustomEvent as EventListener);
-    // Listen for storage events
-    window.addEventListener('storage', handleStorageEvent);
-    
-    // Also poll localStorage as a fallback
-    const pollInterval = setInterval(() => {
-      try {
-        const stored = localStorage.getItem('purchase_tokens');
-        if (stored) {
-          const data = JSON.parse(stored);
-          // Only process if recent (within last 30 seconds)
-          if (data.timestamp && Date.now() - data.timestamp < 30000 && data.tokens) {
-            console.log(`💰💰💰 useTokenBalance: Polled localStorage: +${data.tokens} tokens`);
-            updateBalance(data.tokens);
-            localStorage.removeItem('purchase_tokens'); // Clear after processing
-          }
-        }
-      } catch (e) {
-        // Ignore errors
-      }
-    }, 500); // Poll every 500ms
+    console.log('✅✅✅ useTokenBalance: Exposed __TOKEN_BALANCE_UPDATE__ function');
     
     return () => {
-      window.removeEventListener('purchaseCompleted', handleCustomEvent as EventListener);
-      window.removeEventListener('storage', handleStorageEvent);
-      clearInterval(pollInterval);
       delete (window as any).__TOKEN_BALANCE_UPDATE__;
     };
   }, [user]);

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState, useRef } from "react";
 
 type PageKey = "DRILL" | "LIVE" | "REALTIME";
 type Ctx = {
@@ -25,30 +25,44 @@ export const TokenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Expose functions IMMEDIATELY on window load (not just in useEffect)
-  // This ensures they're available as soon as possible
-  if (typeof window !== 'undefined') {
-    // Expose update function for direct JavaScript injection - THIS IS THE MAIN METHOD
-    const updateTokens = (tokens: number) => {
-      console.log(`💰💰💰💰💰 DIRECT TOKEN UPDATE CALLED: +${tokens} tokens`);
-      setBalance((prev: number | null) => {
-        const newBalance = (prev || 0) + tokens;
-        console.log(`💰💰💰💰💰 Token balance updated: ${prev || 0} → ${newBalance} (+${tokens})`);
-        return newBalance;
-      });
-    };
+  // Track processed transactions to prevent duplicates
+  const processedTransactions = useRef<Set<string>>(new Set());
+  
+  // Create stable update function using useCallback
+  const updateTokens = useCallback((tokens: number, transactionId?: string) => {
+    const txId = transactionId || `tx_${Date.now()}_${Math.random()}`;
     
-    // Expose refresh function as well
-    const refreshTokens = () => {
-      console.log('🔄🔄🔄 Refreshing tokens from server...');
-      refresh();
-    };
+    // Check if already processed
+    if (processedTransactions.current.has(txId)) {
+      console.log(`⚠️⚠️⚠️⚠️⚠️ Transaction already processed, skipping: ${txId}`);
+      console.log(`⚠️⚠️⚠️⚠️⚠️ Current processed set:`, Array.from(processedTransactions.current));
+      return;
+    }
     
-    (window as any).__TOKEN_PROVIDER_UPDATE__ = updateTokens;
-    (window as any).__REFRESH_TOKENS__ = refreshTokens;
-  }
+    // Mark as processed IMMEDIATELY before any async operations
+    processedTransactions.current.add(txId);
+    // Keep only last 100 transactions
+    if (processedTransactions.current.size > 100) {
+      const arr = Array.from(processedTransactions.current);
+      processedTransactions.current = new Set(arr.slice(-100));
+    }
+    
+    console.log(`💰💰💰💰💰 DIRECT TOKEN UPDATE CALLED: +${tokens} tokens (tx: ${txId})`);
+    console.log(`💰💰💰💰💰 Processed transactions count: ${processedTransactions.current.size}`);
+    setBalance((prev: number | null) => {
+      const newBalance = (prev || 0) + tokens;
+      console.log(`💰💰💰💰💰 Token balance updated: ${prev || 0} → ${newBalance} (+${tokens})`);
+      return newBalance;
+    });
+  }, []);
+  
+  // Create stable refresh function
+  const refreshTokens = useCallback(() => {
+    console.log('🔄🔄🔄 Refreshing tokens from server...');
+    refresh();
+  }, [refresh]);
 
-  // Listen for purchase completion messages from mobile app
+  // Expose functions to window - do this in useEffect to ensure it runs after mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
@@ -60,82 +74,22 @@ export const TokenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     console.log('📱 Setting up purchase completion listener...');
-
-    // Expose update function for direct JavaScript injection - THIS IS THE MAIN METHOD
-    const updateTokens = (tokens: number) => {
-      console.log(`💰💰💰💰💰 DIRECT TOKEN UPDATE CALLED: +${tokens} tokens`);
-      setBalance((prev: number | null) => {
-        const newBalance = (prev || 0) + tokens;
-        console.log(`💰💰💰💰💰 Token balance updated: ${prev || 0} → ${newBalance} (+${tokens})`);
-        return newBalance;
-      });
-    };
     
-    // Expose refresh function as well
-    const refreshTokens = () => {
-      console.log('🔄🔄🔄 Refreshing tokens from server...');
-      refresh();
-    };
-    
+    // Expose functions to window
     (window as any).__TOKEN_PROVIDER_UPDATE__ = updateTokens;
     (window as any).__REFRESH_TOKENS__ = refreshTokens;
+    
     console.log('✅✅✅ Exposed __TOKEN_PROVIDER_UPDATE__ and __REFRESH_TOKENS__ functions');
     console.log('✅✅✅ Functions available:', {
       update: typeof (window as any).__TOKEN_PROVIDER_UPDATE__,
       refresh: typeof (window as any).__REFRESH_TOKENS__
     });
-
-    const handleCustomEvent = (event: CustomEvent) => {
-      if (event.detail?.tokens && event.detail?.isTestProduct) {
-        console.log(`💰 Custom event received: +${event.detail.tokens} tokens`);
-        updateTokens(event.detail.tokens);
-      }
-    };
-
-    const handleStorageEvent = (event: StorageEvent) => {
-      if (event.key === 'purchase_tokens' && event.newValue) {
-        try {
-          const data = JSON.parse(event.newValue);
-          if (data.tokens) {
-            console.log(`💰 Storage event received: +${data.tokens} tokens`);
-            updateTokens(data.tokens);
-          }
-        } catch (e) {
-          // Ignore parse errors
-        }
-      }
-    };
-
-    // Listen for custom purchaseCompleted events
-    window.addEventListener('purchaseCompleted', handleCustomEvent as EventListener);
-    // Listen for storage events
-    window.addEventListener('storage', handleStorageEvent);
-    
-    // Also poll localStorage as a fallback - MORE AGGRESSIVE POLLING
-    const pollInterval = setInterval(() => {
-      try {
-        const stored = localStorage.getItem('purchase_tokens');
-        if (stored) {
-          const data = JSON.parse(stored);
-          // Only process if recent (within last 30 seconds - longer window)
-          if (data.timestamp && Date.now() - data.timestamp < 30000 && data.tokens) {
-            console.log(`💰💰💰💰💰 Polled localStorage: +${data.tokens} tokens (age: ${Math.round((Date.now() - data.timestamp) / 1000)}s)`);
-            updateTokens(data.tokens);
-            localStorage.removeItem('purchase_tokens'); // Clear after processing
-          }
-        }
-      } catch (e) {
-        // Ignore errors
-      }
-    }, 500); // Poll every 500ms instead of 1000ms for faster response
     
     return () => {
-      window.removeEventListener('purchaseCompleted', handleCustomEvent as EventListener);
-      window.removeEventListener('storage', handleStorageEvent);
-      clearInterval(pollInterval);
       delete (window as any).__TOKEN_PROVIDER_UPDATE__;
+      delete (window as any).__REFRESH_TOKENS__;
     };
-  }, [refresh]);
+  }, [updateTokens, refreshTokens]);
 
   const consumeOnce = useCallback(async (page: PageKey, amount: number, meta?: any) => {
     // Use the existing token consumption endpoint which expects { kind, seconds, metadata }

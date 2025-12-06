@@ -17,7 +17,7 @@ function openAppSettings(): void {
 export default function Index() {
   const webRef = useRef<WebView>(null);
   const { granted, loading, error, requestPermission, resetAudioSession } = useAudioPermissions();
-  const pendingTokenUpdate = useRef<{ tokens: number; attempts: number } | null>(null);
+  const pendingTokenUpdate = useRef<{ tokens: number; transactionId?: string; attempts: number } | null>(null);
 
   if (loading) {
     return (
@@ -86,47 +86,63 @@ export default function Index() {
   }
 
   // Helper function to inject token update script
-  const injectTokenUpdate = (tokenAmount: number) => {
+  const injectTokenUpdate = (tokenAmount: number, transactionId?: string) => {
     if (!webRef.current) return;
     
-    console.log(`💰💰💰 Injecting token update script: +${tokenAmount} tokens`);
+    const txId = transactionId || `tx_${Date.now()}`;
+    console.log(`💰💰💰 Injecting token update script: +${tokenAmount} tokens (tx: ${txId})`);
     webRef.current.injectJavaScript(`
       (function() {
         try {
-          // Send confirmation message back to React Native
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'TOKEN_UPDATE_SCRIPT_EXECUTED',
-              tokens: ${tokenAmount},
-              timestamp: Date.now()
-            }));
+          const transactionId = '${txId}';
+          const tokenAmount = ${tokenAmount};
+          
+          // Check if this transaction was already processed
+          const processedKey = 'processed_transactions';
+          let processed = JSON.parse(localStorage.getItem(processedKey) || '[]');
+          if (processed.includes(transactionId)) {
+            console.log('⚠️⚠️⚠️ WEBVIEW: Transaction already processed, skipping:', transactionId);
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'TOKEN_UPDATE_SKIPPED',
+                transactionId: transactionId,
+                reason: 'already_processed'
+              }));
+            }
+            return;
           }
           
+          // Mark transaction as processed IMMEDIATELY
+          processed.push(transactionId);
+          // Keep only last 100 transactions to avoid localStorage bloat
+          if (processed.length > 100) {
+            processed = processed.slice(-100);
+          }
+          localStorage.setItem(processedKey, JSON.stringify(processed));
+          
           console.log('💰💰💰 WEBVIEW: Token update script executing!');
-          console.log('💰💰💰 WEBVIEW: Adding ${tokenAmount} tokens');
+          console.log('💰💰💰 WEBVIEW: Adding ' + tokenAmount + ' tokens (tx: ' + transactionId + ')');
           
           let updateSuccess = false;
           
-          // Method 1: Try both update functions (TokenProvider and useTokenBalance)
-          let functionFound = false;
-          
+          // Method 1: Call BOTH update functions - TokenProvider (for internal state) and useTokenBalance (for UI)
+          // Both need to be updated because different parts of the app use different hooks
           if (typeof window.__TOKEN_PROVIDER_UPDATE__ === 'function') {
-            console.log('✅✅✅ WEBVIEW: Calling __TOKEN_PROVIDER_UPDATE__(${tokenAmount})');
+            console.log('✅✅✅ WEBVIEW: Calling __TOKEN_PROVIDER_UPDATE__(' + tokenAmount + ', ' + transactionId + ')');
             try {
-              window.__TOKEN_PROVIDER_UPDATE__(${tokenAmount});
+              window.__TOKEN_PROVIDER_UPDATE__(tokenAmount, transactionId);
               updateSuccess = true;
-              functionFound = true;
             } catch(e) {
               console.error('❌ WEBVIEW: Error calling __TOKEN_PROVIDER_UPDATE__:', e);
             }
           }
           
+          // Also call useTokenBalance update (this is what the UI actually uses!)
           if (typeof window.__TOKEN_BALANCE_UPDATE__ === 'function') {
-            console.log('✅✅✅ WEBVIEW: Calling __TOKEN_BALANCE_UPDATE__(${tokenAmount})');
+            console.log('✅✅✅ WEBVIEW: Calling __TOKEN_BALANCE_UPDATE__(' + tokenAmount + ', ' + transactionId + ')');
             try {
-              window.__TOKEN_BALANCE_UPDATE__(${tokenAmount});
+              window.__TOKEN_BALANCE_UPDATE__(tokenAmount, transactionId);
               updateSuccess = true;
-              functionFound = true;
             } catch(e) {
               console.error('❌ WEBVIEW: Error calling __TOKEN_BALANCE_UPDATE__:', e);
             }
@@ -135,101 +151,45 @@ export default function Index() {
           if (updateSuccess && window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage(JSON.stringify({
               type: 'TOKEN_UPDATE_SUCCESS',
-              tokens: ${tokenAmount},
+              tokens: tokenAmount,
+              transactionId: transactionId,
               method: 'direct_function_call'
             }));
           }
           
-          if (!functionFound) {
-            console.warn('⚠️⚠️⚠️ WEBVIEW: Neither __TOKEN_PROVIDER_UPDATE__ nor __TOKEN_BALANCE_UPDATE__ found!');
-            // Aggressive retry - functions might not be ready yet
-            let retryCount = 0;
-            const maxRetries = 10;
-            const retryInterval = setInterval(() => {
-              retryCount++;
-              let found = false;
-              
+          if (!updateSuccess) {
+            console.warn('⚠️⚠️⚠️ WEBVIEW: Neither update function found! Retrying...');
+            // Retry after a short delay - call BOTH if available
+            setTimeout(() => {
               if (typeof window.__TOKEN_PROVIDER_UPDATE__ === 'function') {
-                console.log('✅✅✅ WEBVIEW: Retry ' + retryCount + ' - calling __TOKEN_PROVIDER_UPDATE__(${tokenAmount})');
-                try {
-                  window.__TOKEN_PROVIDER_UPDATE__(${tokenAmount});
-                  updateSuccess = true;
-                  found = true;
-                } catch(e) {
-                  console.error('❌ WEBVIEW: Error in retry:', e);
-                }
+                console.log('✅✅✅ WEBVIEW: Retry successful - calling __TOKEN_PROVIDER_UPDATE__');
+                window.__TOKEN_PROVIDER_UPDATE__(tokenAmount, transactionId);
               }
-              
               if (typeof window.__TOKEN_BALANCE_UPDATE__ === 'function') {
-                console.log('✅✅✅ WEBVIEW: Retry ' + retryCount + ' - calling __TOKEN_BALANCE_UPDATE__(${tokenAmount})');
-                try {
-                  window.__TOKEN_BALANCE_UPDATE__(${tokenAmount});
-                  updateSuccess = true;
-                  found = true;
-                } catch(e) {
-                  console.error('❌ WEBVIEW: Error in retry:', e);
-                }
+                console.log('✅✅✅ WEBVIEW: Retry successful - calling __TOKEN_BALANCE_UPDATE__');
+                window.__TOKEN_BALANCE_UPDATE__(tokenAmount, transactionId);
               }
-              
-              if (found && window.ReactNativeWebView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'TOKEN_UPDATE_SUCCESS',
-                  tokens: ${tokenAmount},
-                  method: 'retry_' + retryCount
-                }));
-                clearInterval(retryInterval);
-              } else if (retryCount >= maxRetries) {
-                console.warn('⚠️ WEBVIEW: Max retries reached, functions still not available');
-                clearInterval(retryInterval);
-              }
-            }, 200); // Retry every 200ms
-          }
-          
-          // Method 2: Dispatch custom event (ALWAYS DO THIS)
-          try {
-            const event = new CustomEvent('purchaseCompleted', { 
-              detail: { tokens: ${tokenAmount}, isTestProduct: true }
-            });
-            window.dispatchEvent(event);
-            console.log('✅ WEBVIEW: Dispatched purchaseCompleted event');
-          } catch(e) {
-            console.error('❌ WEBVIEW: Error dispatching event:', e);
-          }
-          
-          // Method 3: Trigger localStorage update (ALWAYS DO THIS - polling will catch it)
-          try {
-            const purchaseData = { tokens: ${tokenAmount}, timestamp: Date.now() };
-            localStorage.setItem('purchase_tokens', JSON.stringify(purchaseData));
-            console.log('✅ WEBVIEW: Set localStorage purchase_tokens');
-            
-            // Manually trigger storage event
-            window.dispatchEvent(new StorageEvent('storage', { 
-              key: 'purchase_tokens', 
-              newValue: JSON.stringify(purchaseData),
-              oldValue: null
-            }));
-            console.log('✅ WEBVIEW: Dispatched storage event');
-          } catch(e) {
-            console.error('❌ WEBVIEW: Error with localStorage:', e);
-          }
-          
-          // Method 4: Force refresh token balance by calling refresh function if available
-          if (window.__REFRESH_TOKENS__) {
-            console.log('✅ WEBVIEW: Calling __REFRESH_TOKENS__');
-            try {
-              window.__REFRESH_TOKENS__();
-            } catch(e) {
-              console.error('❌ WEBVIEW: Error calling refresh:', e);
-            }
+            }, 500);
           }
           
           console.log('✅✅✅ WEBVIEW: Token update script completed! Success:', updateSuccess);
+          
+          // Send confirmation
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'TOKEN_UPDATE_SCRIPT_EXECUTED',
+              tokens: tokenAmount,
+              transactionId: transactionId,
+              timestamp: Date.now()
+            }));
+          }
         } catch(e) {
           console.error('❌❌❌ WEBVIEW: Error in token update script:', e);
           if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage(JSON.stringify({
               type: 'TOKEN_UPDATE_ERROR',
-              error: e.message || String(e)
+              error: e.message || String(e),
+              transactionId: '${txId}'
             }));
           }
         }
@@ -275,10 +235,10 @@ export default function Index() {
           
           // If there's a pending token update, inject it now that WebView is ready
           if (pendingTokenUpdate.current && webRef.current) {
-            const { tokens, attempts } = pendingTokenUpdate.current;
+            const { tokens, transactionId, attempts } = pendingTokenUpdate.current;
             if (attempts < 5) { // Retry up to 5 times
-              console.log(`💰💰💰 WebView loaded - injecting token update (attempt ${attempts + 1}): +${tokens} tokens`);
-              injectTokenUpdate(tokens);
+              console.log(`💰💰💰 WebView loaded - injecting token update (attempt ${attempts + 1}): +${tokens} tokens (tx: ${transactionId})`);
+              injectTokenUpdate(tokens, transactionId);
               pendingTokenUpdate.current.attempts += 1;
             } else {
               console.warn('⚠️ Max attempts reached for token update');
@@ -360,14 +320,18 @@ export default function Index() {
                   
                   // Also inject JavaScript to directly update token balance (for test products)
                   if (isTestProduct) {
-                    // Store pending update - will be injected when WebView finishes loading
-                    pendingTokenUpdate.current = { tokens: tokenAmount, attempts: 0 };
-                    console.log(`💰💰💰 Stored pending token update: +${tokenAmount} tokens`);
+                    // Store pending update with transaction ID for deduplication
+                    pendingTokenUpdate.current = { 
+                      tokens: tokenAmount, 
+                      transactionId: result.transactionId,
+                      attempts: 0 
+                    };
+                    console.log(`💰💰💰 Stored pending token update: +${tokenAmount} tokens (tx: ${result.transactionId})`);
                     
                     // Try immediate injection (in case WebView is already loaded)
                     setTimeout(() => {
                       if (webRef.current) {
-                        injectTokenUpdate(tokenAmount);
+                        injectTokenUpdate(tokenAmount, result.transactionId);
                       }
                     }, 1000); // Wait 1 second for purchase sheet to close
                   }
