@@ -68,11 +68,6 @@ export const PRODUCT_TOKEN_MAP = {
   'com.nailit.pack.plus': 250,
   'com.nailit.pack.pro': 480,
   'com.nailit.pack.power': 1000,
-  // Test iOS products
-  'com.yourname.test.pack.starter': 120,
-  'com.yourname.test.pack.plus': 250,
-  'com.yourname.test.pack.pro': 480,
-  'com.yourname.test.pack.power': 1000,
   // Android products (production IDs)
   'pack_starter_120': 120,
   'pack_plus_250': 250,
@@ -206,7 +201,6 @@ class PurchaseConfig {
       // Load products
       const productIds = getProductIds()
       console.log('🔍 Requesting products with IDs:', productIds)
-      console.log('📱 Bundle ID:', Platform.OS === 'ios' ? 'com.yourname.test.interview' : 'com.nailit.interview')
       console.log('📱 Platform:', Platform.OS)
       console.log('🧪 Test IAP Mode:', USE_TEST_IAP)
       
