@@ -43,6 +43,22 @@ const bullets = [
 
 export default function PaidPlansScreen() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [productsLoaded, setProductsLoaded] = useState(false);
+
+  React.useEffect(() => {
+    // Initialize IAP and load products when screen mounts
+    const initIAP = async () => {
+      try {
+        await purchaseService.initialize();
+        const products = await purchaseService.getProducts();
+        setProductsLoaded(products.length > 0);
+        console.log('PaidPlansScreen: Products loaded:', products.length);
+      } catch (err) {
+        console.error('PaidPlansScreen: Failed to load products', err);
+      }
+    };
+    initIAP();
+  }, []);
 
   const handlePurchase = async (planId: string) => {
     // @ts-ignore
@@ -103,7 +119,9 @@ export default function PaidPlansScreen() {
               {loadingId === p.id ? (
                 <ActivityIndicator color="#ffffff" size="small" />
               ) : (
-                <Text style={styles.continueButtonText}>Continue</Text>
+                <Text style={styles.continueButtonText}>
+                  {productsLoaded ? 'Continue' : 'Loading...'}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
