@@ -319,25 +319,23 @@ export default function Index() {
                   // Send via postMessage
                   webRef.current?.postMessage(JSON.stringify(purchaseMessage));
 
-                  // Also inject JavaScript to directly update token balance (for test products)
-                  if (isTestProduct) {
-                    // Store pending update with transaction ID for deduplication
-                    pendingTokenUpdate.current = {
-                      tokens: tokenAmount,
-                      transactionId: result.transactionId,
-                      attempts: 0
-                    };
-                    console.log(`💰💰💰 Stored pending token update: +${tokenAmount} tokens (tx: ${result.transactionId})`);
+                  // Inject JavaScript to directly update token balance (for ALL purchases)
+                  // This provides immediate UI feedback even if server is slow/fails
+                  pendingTokenUpdate.current = {
+                    tokens: tokenAmount,
+                    transactionId: result.transactionId,
+                    attempts: 0
+                  };
+                  console.log(`💰💰💰 Stored pending token update: +${tokenAmount} tokens (tx: ${result.transactionId})`);
 
-                    // Try immediate injection (in case WebView is already loaded)
-                    setTimeout(() => {
-                      if (webRef.current) {
-                        injectTokenUpdate(tokenAmount, result.transactionId);
-                      }
-                    }, 1000); // Wait 1 second for purchase sheet to close
-                  }
+                  // Try immediate injection (in case WebView is already loaded)
+                  setTimeout(() => {
+                    if (webRef.current) {
+                      injectTokenUpdate(tokenAmount, result.transactionId);
+                    }
+                  }, 1000); // Wait 1 second for purchase sheet to close
 
-                  console.log(`💰 Purchase complete: ${tokenAmount} tokens (test: ${isTestProduct})`);
+                  console.log(`💰 Purchase complete: ${tokenAmount} tokens`);
                 }).catch((error) => {
                   console.error('❌ Purchase failed:', error);
                   // Only notify if not user cancellation

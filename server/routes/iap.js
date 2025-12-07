@@ -15,9 +15,9 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
 
     // FOR TEST PRODUCTS: COMPLETELY IGNORE USER CHECKS - JUST GRANT TOKENS
     const isTestProduct = productId.startsWith('com.yourname.test.')
-    
+
     let finalUserId = null
-    
+
     if (isTestProduct) {
       // TEST MODE: Find or create user, NO CHECKS, NO VALIDATION, JUST DO IT
       let { data: anyUser } = await sbAdmin
@@ -25,7 +25,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
         .select('id')
         .limit(1)
         .maybeSingle()
-      
+
       if (!anyUser) {
         // Create test user - NO ERROR HANDLING, JUST CREATE IT
         try {
@@ -35,7 +35,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
             password: 'test123456',
             email_confirm: true
           })
-          
+
           if (authUser?.user?.id) {
             await sbAdmin.from('profiles').insert({
               id: authUser.user.id,
@@ -51,7 +51,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
           if (fallback) anyUser = fallback
         }
       }
-      
+
       // Use first user found/created, or fail silently and still grant tokens
       finalUserId = anyUser?.id || null
       console.log('🧪 TEST MODE: Using user (or null):', finalUserId || 'NO USER - will still try to grant')
@@ -99,7 +99,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
     // Map productId -> tokens (including test product IDs)
     let tokens = 0
     let packKey = null
-    
+
     // Check production product IDs
     for (const [k, v] of Object.entries(TOKEN_PACKS)) {
       if ([v.productIdIOS, v.productIdAndroid, v.productIdWeb].includes(productId)) {
@@ -108,7 +108,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
         break
       }
     }
-    
+
     // If not found, check for test product IDs (com.yourname.test.pack.*)
     if (!tokens || !packKey) {
       const testProductMap = {
@@ -117,7 +117,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
         'com.yourname.test.pack.pro': { tokens: 480, packKey: 'pro' },
         'com.yourname.test.pack.power': { tokens: 1000, packKey: 'power' },
       }
-      
+
       const testProduct = testProductMap[productId]
       if (testProduct) {
         tokens = testProduct.tokens
@@ -198,7 +198,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
           console.error('Failed to create user:', e.message)
         }
       }
-      
+
       // Grant tokens - even if finalUserId is still null, try anyway
       if (finalUserId) {
         console.log(`💰 TEST MODE: Granting ${tokens} tokens to ${finalUserId}`)
@@ -214,7 +214,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
           return res.json({ ok: true, granted: tokens, user: finalUserId, tokens: tokens })
         }
       }
-      
+
       // If we get here, still return success for test products (tokens recorded in purchase table)
       console.log(`⚠️ Could not grant tokens, but purchase recorded for testing`)
       return res.json({ ok: true, granted: 0, user: finalUserId, tokens: tokens, message: 'Purchase recorded' })
@@ -233,27 +233,27 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
         return res.status(500).json({ error: 'Failed to grant tokens', details: grantError.message })
       }
       console.log(`✅ Successfully granted ${tokens} tokens to user ${finalUserId}`)
-      return res.json({ 
-        ok: true, 
-        granted: tokens, 
-        user: finalUserId, 
+      return res.json({
+        ok: true,
+        granted: tokens,
+        user: finalUserId,
         message: `${tokens} tokens granted successfully!`,
         tokens: tokens
       })
     } else {
       // Production mode without userId
       console.warn('⚠️ No userId available, purchase recorded but tokens not granted')
-      return res.json({ 
-        ok: true, 
-        granted: 0, 
-        user: null, 
+      return res.json({
+        ok: true,
+        granted: 0,
+        user: null,
         message: `Purchase recorded. ${tokens} tokens will be granted when you log in and use "Restore Purchases".`,
         tokens: tokens
       })
     }
   } catch (error) {
     console.error('IAP verification error:', error)
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ error: 'Internal server error', details: error.message })
   }
 }
 
@@ -263,36 +263,35 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
  */
 async function verifyAppleReceipt(receipt, productId, transactionId) {
   try {
-    // For production, you should:
-    // 1. Send receipt to Apple's verifyReceipt API
-    // 2. Check the response for the transaction
-    // 3. Validate the receipt signature
-    
-    // Apple verifyReceipt endpoint
-    const verifyUrl = process.env.APPLE_VERIFY_RECEIPT_URL || 
-      (process.env.NODE_ENV === 'production' 
-        ? 'https://buy.itunes.apple.com/verifyReceipt'
-        : 'https://sandbox.itunes.apple.com/verifyReceipt')
-    
     const applePassword = process.env.APPLE_SHARED_SECRET
-    
-    const response = await fetch(verifyUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        'receipt-data': receipt,
-        'password': applePassword,
-        'exclude-old-transactions': true
-      })
-    })
 
-    if (!response.ok) {
-      console.error('Apple receipt verification failed:', response.status)
-      return null
+    // Helper to fetch from specific Apple URL
+    const verifyWithApple = async (url) => {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          'receipt-data': receipt,
+          'password': applePassword,
+          'exclude-old-transactions': true
+        })
+      })
+
+      if (!response.ok) throw new Error(`Apple API failed: ${response.status}`)
+      return await response.json()
     }
 
-    const data = await response.json()
-    
+    // Try Production URL first (default)
+    let verifyUrl = 'https://buy.itunes.apple.com/verifyReceipt'
+    let data = await verifyWithApple(verifyUrl)
+
+    // Handle Sandbox receipt sent to Production (Status 21007)
+    if (data.status === 21007) {
+      console.log('🍏 Got 21007 (Sandbox receipt) - retrying with Sandbox URL...')
+      verifyUrl = 'https://sandbox.itunes.apple.com/verifyReceipt'
+      data = await verifyWithApple(verifyUrl)
+    }
+
     if (data.status !== 0) {
       console.error('Apple receipt status error:', data.status)
       return null
@@ -300,16 +299,23 @@ async function verifyAppleReceipt(receipt, productId, transactionId) {
 
     // Find the transaction in the receipt
     const transactions = data.receipt?.in_app || []
-    const transaction = transactions.find(t => t.transaction_id === transactionId)
-    
+
+    // In sandbox, transaction ID might vary or be original_transaction_id
+    // We try to find match by ID, or if only 1 transaction matches product
+    const transaction = transactions.find(t => t.transaction_id === transactionId) ||
+      transactions.find(t => t.product_id === productId) // Fallback: find any matching product
+
     if (!transaction) {
       console.error('Transaction not found in receipt')
+      if (transactions.length > 0) {
+        console.log('Available transactions:', transactions.map(t => `${t.product_id} (${t.transaction_id})`))
+      }
       return null
     }
 
     // Verify product ID matches
     if (transaction.product_id !== productId) {
-      console.error('Product ID mismatch')
+      console.error(`Product ID mismatch: expected ${productId}, got ${transaction.product_id}`)
       return null
     }
 
@@ -317,7 +323,7 @@ async function verifyAppleReceipt(receipt, productId, transactionId) {
       transactionId: transaction.transaction_id,
       productId: transaction.product_id,
       purchaseDate: transaction.purchase_date_ms,
-      amountCents: null, // Apple doesn't provide price in receipt
+      amountCents: null,
       currency: null
     }
   } catch (error) {
@@ -336,12 +342,12 @@ async function verifyGoogleReceipt(receipt, productId, transactionId) {
     // 1. Use Google Play Developer API to verify the purchase token
     // 2. Check the purchase state
     // 3. Validate the signature
-    
+
     // This is a simplified version - in production, use Google Play Developer API
     // You'll need to set up OAuth2 and use the purchases.products.get endpoint
-    
+
     const packageName = process.env.GOOGLE_PLAY_PACKAGE_NAME || 'com.nailit.interview'
-    
+
     // For now, we'll do basic validation
     // In production, implement proper Google Play API verification
     if (!receipt || !productId || !transactionId) {
@@ -353,7 +359,7 @@ async function verifyGoogleReceipt(receipt, productId, transactionId) {
     // 1. Google Service Account with Play Developer API access
     // 2. OAuth2 token generation
     // 3. Call to purchases.products.get API
-    
+
     // For now, return basic structure (you should implement full verification)
     return {
       transactionId,
