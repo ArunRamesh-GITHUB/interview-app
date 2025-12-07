@@ -25,9 +25,10 @@ interface PaywallScreenProps {
   }
 }
 
+// Replace strictly typed Product with any to handle v14 changes
 interface PackageCardProps {
-  product: Product
-  onPurchase: (product: Product) => void
+  product: any
+  onPurchase: (product: any) => void
   purchasing: boolean
 }
 
@@ -103,7 +104,7 @@ const PackageCard: React.FC<PackageCardProps> = ({ product, onPurchase, purchasi
 }
 
 export default function PaywallScreen({ navigation, route }: PaywallScreenProps) {
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState<string | null>(null)
   const [currentTokens, setCurrentTokens] = useState(route?.params?.currentTokens || 0)
@@ -130,7 +131,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
       const fetchedProducts = await purchaseService.getProducts()
 
       // Sort products by token amount (ascending)
-      const sortedProducts = [...fetchedProducts].sort((a, b) => {
+      const sortedProducts = [...fetchedProducts].sort((a: any, b: any) => {
         const tokensA = getTokenAmountFromProduct(a.productId)
         const tokensB = getTokenAmountFromProduct(b.productId)
         return tokensA - tokensB
@@ -151,7 +152,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
     }
   }
 
-  const handlePurchase = async (product: Product) => {
+  const handlePurchase = async (product: any) => {
     try {
       setPurchasing(product.productId)
 

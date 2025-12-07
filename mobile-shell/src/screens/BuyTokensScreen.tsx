@@ -46,7 +46,7 @@ export default function BuyTokensScreen({ userId }: { userId?: string }) {
     <View style={{ flex: 1, padding: 20 }}>
       <Text style={{ fontSize: 22, fontWeight: '700', marginBottom: 12 }}>Buy tokens</Text>
       {packs.length === 0 && <Text>No packs configured.</Text>}
-      {packs.map((p: Product) => (
+      {packs.map((p: any) => (
         <TouchableOpacity
           key={p.productId}
           onPress={() => buy(p.productId)}

@@ -15,8 +15,8 @@ import { useRouter } from 'expo-router'
 
 export default function DebugPurchasesScreen() {
   const router = useRouter()
-  const [purchases, setPurchases] = useState<Purchase[]>([])
-  const [products, setProducts] = useState<Product[]>([])
+  const [purchases, setPurchases] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -34,8 +34,8 @@ export default function DebugPurchasesScreen() {
         purchaseService.getProducts()
       ])
 
-      setPurchases(purchasesData as Purchase[])
-      setProducts(productsData)
+      setPurchases(purchasesData as any[])
+      setProducts(productsData as any[])
     } catch (error) {
       console.error('Failed to load purchase data:', error)
       Alert.alert('Error', 'Failed to load purchase data')

@@ -94,6 +94,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 18
         versionName "1.0.0"
+        
+        // Required for react-native-iap - select Google Play Store flavor
+        missingDimensionStrategy 'store', 'play'
     }
     signingConfigs {
         debug {
