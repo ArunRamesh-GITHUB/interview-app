@@ -1,4 +1,4 @@
-import { Audio } from "expo-av";
+import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from "expo-av";
 import { Platform, PermissionsAndroid } from "react-native";
 
 export async function ensureMicPermission(): Promise<boolean> {
@@ -7,11 +7,11 @@ export async function ensureMicPermission(): Promise<boolean> {
     const hasPermission = await PermissionsAndroid.check(
       PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
     );
-    
+
     if (hasPermission) {
       return true;
     }
-    
+
     // Request permission
     const granted = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
@@ -23,19 +23,19 @@ export async function ensureMicPermission(): Promise<boolean> {
         buttonPositive: "OK",
       }
     );
-    
+
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   }
-  
+
   if (Platform.OS === 'ios') {
     // For iOS, use expo-av permissions
     const { status: existing } = await Audio.getPermissionsAsync();
     if (existing === "granted") return true;
-    
+
     const { status } = await Audio.requestPermissionsAsync();
     return status === "granted";
   }
-  
+
   // Web/other platforms - assume granted
   return true;
 }
@@ -45,7 +45,7 @@ export async function setupAudioMode(): Promise<void> {
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: true,
       staysActiveInBackground: false,
-      interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+      interruptionModeIOS: InterruptionModeIOS.DoNotMix,
       shouldDuckAndroid: true,
       playThroughEarpieceAndroid: false,
       playsInSilentModeIOS: true,

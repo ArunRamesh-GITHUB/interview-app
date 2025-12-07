@@ -35,37 +35,8 @@ export const TOKEN_PACKS = {
 }
 
 // Product token mapping for server webhook
-export const PRODUCT_TOKEN_MAP = {
-  // Production iOS products
-  'com.nailit.pack.starter': 120,
-  'com.nailit.pack.plus': 250,
-  'com.nailit.pack.pro': 480,
-  'com.nailit.pack.power': 1000,
-  // Android products (production IDs)
-  'pack_starter_120': 120,
-  'pack_plus_250': 250,
-  'pack_pro_480': 480,
-  'pack_power_1000': 1000,
-  // Legacy Android IDs for compatibility
-  'tokens_starter': 120,
-  'tokens_plus': 250,
-  'tokens_pro': 480,
-  'tokens_power': 1000,
-  // Web products
-  'tokens_starter_web': 120,
-  'tokens_plus_web': 250,
-  'tokens_pro_web': 480,
-  'tokens_power_web': 1000,
-  // Legacy format for compatibility
-  'tokens.starter': 120,
-  'tokens.plus': 250,
-  'tokens.pro': 480,
-  'tokens.power': 1000,
-  sub_starter_monthly: 120,
-  sub_plus_monthly: 250,
-  sub_pro_monthly: 480,
-  sub_power_monthly: 1000,
-}
+// Product token mapping removed in favor of direct lookup in purchaseService
+// export const PRODUCT_TOKEN_MAP = { ... }
 
 // Get all product IDs for current platform
 export function getProductIds(): string[] {
@@ -350,7 +321,14 @@ class PurchaseConfig {
         const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://interview-app-4ouh.onrender.com'
 
         // Get token amount for this product
-        const tokens = (PRODUCT_TOKEN_MAP as any)[purchase.productId] || 0
+        let tokens = 0;
+        const pack = Object.values(TOKEN_PACKS).find(p =>
+          p.productIdIOS === purchase.productId ||
+          p.productIdAndroid === purchase.productId ||
+          p.productIdWeb === purchase.productId
+        );
+        tokens = pack ? pack.tokens : 0;
+
         if (!tokens) {
           return { ok: false }
         }
@@ -417,7 +395,13 @@ class PurchaseConfig {
     })
 
     // Return success immediately so purchase flow continues
-    const tokens = (PRODUCT_TOKEN_MAP as any)[purchase.productId] || 0
+    let tokens = 0;
+    const pack = Object.values(TOKEN_PACKS).find(p =>
+      p.productIdIOS === purchase.productId ||
+      p.productIdAndroid === purchase.productId ||
+      p.productIdWeb === purchase.productId
+    );
+    tokens = pack ? pack.tokens : 0;
 
 
     return {

@@ -33,15 +33,15 @@ interface PackageCardProps {
 
 const PackageCard: React.FC<PackageCardProps> = ({ product, onPurchase, purchasing }) => {
   const tokenAmount = getTokenAmountFromProduct(product.productId)
-  
+
   // Clean price - aggressively remove all month references
   let cleanPrice = (product.localizedPrice || '').trim()
-  
+
   // Log original price for debugging
   if (__DEV__) {
     console.log(`[Paywall] Product ${product.productId} - Original price: "${cleanPrice}"`)
   }
-  
+
   // Remove all variations of /month, per month, monthly
   cleanPrice = cleanPrice
     .split('/')[0]                    // Remove everything after /
@@ -49,7 +49,7 @@ const PackageCard: React.FC<PackageCardProps> = ({ product, onPurchase, purchasi
     .split('per mo')[0]               // Remove "per mo"
     .split('monthly')[0]              // Remove "monthly"
     .trim()
-  
+
   if (__DEV__) {
     console.log(`[Paywall] Product ${product.productId} - Cleaned price: "${cleanPrice}"`)
   }
@@ -112,7 +112,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
 
   useEffect(() => {
     initializePurchases()
-    
+
     // Cleanup on unmount
     return () => {
       // Cleanup handled by purchaseConfig
@@ -122,20 +122,20 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
   const initializePurchases = async () => {
     try {
       setLoading(true)
-      
+
       // Initialize with user ID if available
       await purchaseService.initialize(supabaseUserId)
-      
+
       // Get products
-      const offeringsData = await purchaseService.getOfferings()
-      
+      const fetchedProducts = await purchaseService.getProducts()
+
       // Sort products by token amount (ascending)
-      const sortedProducts = [...offeringsData.products].sort((a, b) => {
+      const sortedProducts = [...fetchedProducts].sort((a, b) => {
         const tokensA = getTokenAmountFromProduct(a.productId)
         const tokensB = getTokenAmountFromProduct(b.productId)
         return tokensA - tokensB
       })
-      
+
       setProducts(sortedProducts)
     } catch (error: any) {
       console.error('Failed to initialize purchases:', error)
@@ -158,7 +158,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
       const result = await purchaseService.purchasePackage(product.productId)
 
       const tokenAmount = getTokenAmountFromProduct(result.productIdentifier)
-      
+
       // FOR TEST PRODUCTS: Increment tokens locally immediately (server bypassed)
       const isTestProduct = product.productId.startsWith('com.yourname.test.')
       if (isTestProduct) {
@@ -236,7 +236,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Header */}
       <View style={{ backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -246,7 +246,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
           <Text style={{ fontSize: 18, fontWeight: '600' }}>Upgrade your plan</Text>
           <View style={{ width: 50 }} />
         </View>
-        
+
         {/* Current Token Balance */}
         <View style={{
           backgroundColor: '#f0f0f0',
@@ -270,7 +270,7 @@ export default function PaywallScreen({ navigation, route }: PaywallScreenProps)
           <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
             Purchase token packs to use with Practice and Realtime features.
           </Text>
-          
+
           {products.map(product => (
             <PackageCard
               key={product.productId}

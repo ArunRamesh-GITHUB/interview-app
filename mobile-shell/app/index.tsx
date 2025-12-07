@@ -41,7 +41,7 @@ export default function Index() {
             {error}
           </Text>
         )}
-        
+
         <TouchableOpacity
           style={[styles.demoButton, { marginTop: 20 }]}
           onPress={openAppSettings}
@@ -62,7 +62,7 @@ export default function Index() {
         >
           <Text style={styles.demoButtonText}>Reset Audio</Text>
         </TouchableOpacity>
-        
+
         {/* Demo Navigation Buttons */}
         <View style={{ marginTop: 30 }}>
           <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 10, textAlign: 'center', color: '#fff' }}>
@@ -88,7 +88,7 @@ export default function Index() {
   // Helper function to inject token update script
   const injectTokenUpdate = (tokenAmount: number, transactionId?: string) => {
     if (!webRef.current) return;
-    
+
     const txId = transactionId || `tx_${Date.now()}`;
     console.log(`💰💰💰 Injecting token update script: +${tokenAmount} tokens (tx: ${txId})`);
     webRef.current.injectJavaScript(`
@@ -209,6 +209,7 @@ export default function Index() {
         allowsFullscreenVideo={false}
         mediaPlaybackRequiresUserAction={false}
         allowsInlineMediaPlayback={true}
+        // @ts-ignore
         onPermissionRequest={(request) => {
           console.log("WebView permission request:", request);
           if (Platform.OS === "android") {
@@ -232,7 +233,7 @@ export default function Index() {
             type: 'NATIVE_AUDIO_READY',
             permissions: 'granted'
           }));
-          
+
           // If there's a pending token update, inject it now that WebView is ready
           if (pendingTokenUpdate.current && webRef.current) {
             const { tokens, transactionId, attempts } = pendingTokenUpdate.current;
@@ -269,7 +270,7 @@ export default function Index() {
             // Handle purchase messages from web app
             if (message.type === 'REQUEST_PURCHASE') {
               console.log("Web app requesting purchase:", message.productId);
-              
+
               // Import purchase service and product ID converter
               Promise.all([
                 import('../src/lib/purchaseService'),
@@ -278,14 +279,14 @@ export default function Index() {
                 // Convert web product ID to platform-specific product ID
                 const nativeProductId = convertWebProductIdToNative(message.productId);
                 console.log(`🔄 Converting ${message.productId} → ${nativeProductId} for ${Platform.OS}`);
-                
+
                 // Try to get userId from WebView message
                 let userId = message.userId || undefined;
-                
+
                 // Log the full message to debug
                 console.log('📨 Full purchase message:', JSON.stringify(message));
                 console.log('👤 Extracted userId from message:', userId || 'none');
-                
+
                 // For test products, userId is optional - server will use first available account
                 // Initialize and directly trigger native purchase sheet
                 purchaseService.initialize(userId).then(() => {
@@ -299,12 +300,12 @@ export default function Index() {
                   return purchaseService.purchasePackage(nativeProductId);
                 }).then(async (result) => {
                   console.log('✅ Purchase successful:', result);
-                  
+
                   // Get token amount for this product
                   const { getTokenAmountFromProduct } = await import('../src/lib/purchaseService');
                   const tokenAmount = getTokenAmountFromProduct(result.productIdentifier);
                   const isTestProduct = result.productIdentifier.startsWith('com.yourname.test.');
-                  
+
                   // Notify web view of success with token amount
                   const purchaseMessage = {
                     type: 'PURCHASE_COMPLETED',
@@ -314,20 +315,20 @@ export default function Index() {
                     tokens: tokenAmount,
                     isTestProduct: isTestProduct
                   };
-                  
+
                   // Send via postMessage
                   webRef.current?.postMessage(JSON.stringify(purchaseMessage));
-                  
+
                   // Also inject JavaScript to directly update token balance (for test products)
                   if (isTestProduct) {
                     // Store pending update with transaction ID for deduplication
-                    pendingTokenUpdate.current = { 
-                      tokens: tokenAmount, 
+                    pendingTokenUpdate.current = {
+                      tokens: tokenAmount,
                       transactionId: result.transactionId,
-                      attempts: 0 
+                      attempts: 0
                     };
                     console.log(`💰💰💰 Stored pending token update: +${tokenAmount} tokens (tx: ${result.transactionId})`);
-                    
+
                     // Try immediate injection (in case WebView is already loaded)
                     setTimeout(() => {
                       if (webRef.current) {
@@ -335,7 +336,7 @@ export default function Index() {
                       }
                     }, 1000); // Wait 1 second for purchase sheet to close
                   }
-                  
+
                   console.log(`💰 Purchase complete: ${tokenAmount} tokens (test: ${isTestProduct})`);
                 }).catch((error) => {
                   console.error('❌ Purchase failed:', error);
@@ -343,10 +344,10 @@ export default function Index() {
                   if (error.message !== 'Purchase cancelled by user') {
                     webRef.current?.postMessage(JSON.stringify({
                       type: 'PURCHASE_FAILED',
-                  productId: message.productId,
+                      productId: message.productId,
                       error: error.message
                     }));
-                }
+                  }
                 });
               }).catch((importError) => {
                 console.error('Failed to import purchase modules:', importError);
@@ -366,7 +367,7 @@ export default function Index() {
             } else if (message.type === 'TOKEN_UPDATE_ERROR') {
               console.error(`❌❌❌ Token update error from WebView:`, message.error);
             }
-            
+
             // Handle audio-related messages from the web app
             if (message.type === 'AUDIO_ERROR') {
               console.error("Audio error from web:", message.error);

@@ -29,13 +29,13 @@ export default function DebugPurchasesScreen() {
       setRefreshing(true)
       await purchaseService.initialize()
 
-      const [purchasesData, offeringsData] = await Promise.all([
+      const [purchasesData, productsData] = await Promise.all([
         purchaseService.getCustomerInfo(),
-        purchaseService.getOfferings()
+        purchaseService.getProducts()
       ])
 
       setPurchases(purchasesData as Purchase[])
-      setProducts(offeringsData.products)
+      setProducts(productsData)
     } catch (error) {
       console.error('Failed to load purchase data:', error)
       Alert.alert('Error', 'Failed to load purchase data')
@@ -47,8 +47,8 @@ export default function DebugPurchasesScreen() {
   const handleRestorePurchases = async () => {
     try {
       setLoading(true)
-      const restored = await purchaseService.restorePurchases()
-      setPurchases(restored)
+      const products = await purchaseService.getProducts()
+      setProducts(products)
       Alert.alert('Success', 'Purchases restored successfully!')
     } catch (error: any) {
       console.error('Restore failed:', error)
@@ -121,7 +121,7 @@ export default function DebugPurchasesScreen() {
                     Transaction ID: {purchase.transactionId}
                   </Text>
                   <Text style={{ fontSize: 12, color: '#666' }}>
-                    Purchase Date: {formatDate(purchase.purchaseTime)}
+                    Purchase Date: {formatDate(Number(purchase.transactionDate))}
                   </Text>
                 </View>
               ))}
