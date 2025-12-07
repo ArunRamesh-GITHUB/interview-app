@@ -13,7 +13,7 @@ export interface Offerings {
 
 export interface PurchaseService {
   initialize(userId?: string): Promise<void>
-  getOfferings(): Promise<Offerings>
+  getProducts(): Promise<Product[]>
   purchasePackage(productId: string): Promise<PurchaseResult>
   restorePurchases(): Promise<Purchase[]>
   getCustomerInfo(): Promise<Purchase[]>
@@ -27,9 +27,8 @@ class StandardIAPService implements PurchaseService {
     return purchaseConfig.initialize(userId)
   }
 
-  async getOfferings(): Promise<Offerings> {
-    const products = await purchaseConfig.getProducts()
-    return { products }
+  async getProducts(): Promise<Product[]> {
+    return purchaseConfig.getProducts()
   }
 
   async purchasePackage(productId: string): Promise<PurchaseResult> {
