@@ -5,11 +5,9 @@ import type { Product, Purchase, PurchaseError } from 'react-native-iap'
 // Token packs configuration
 // For testing: Use your own test bundle ID and product IDs
 // For production: Use com.nailit.pack.* product IDs
-const USE_TEST_IAP = false // Set to false when using production IAP
-
-export const TOKEN_PACKS = USE_TEST_IAP ? {
-} : {
-  // PRODUCTION IAP Products - Client's App Store Connect
+// Shared token pack configuration for RevenueCat integration
+// Used by server webhook, web frontend, and mobile app
+export const TOKEN_PACKS = {
   starter: {
     productIdIOS: 'com.nailit.pack.starter',
     productIdAndroid: 'pack_starter_120',
@@ -142,17 +140,7 @@ class PurchaseConfig {
           // Finish the transaction
           await RNIap.finishTransaction({ purchase, isConsumable: false })
 
-          // FOR TEST PRODUCTS: COMPLETELY SKIP SERVER - JUST LOG SUCCESS
-          const isTestProduct = purchase.productId.startsWith('com.yourname.test.')
-          if (isTestProduct) {
-            const tokens = (PRODUCT_TOKEN_MAP as any)[purchase.productId] || 0
-            console.log(`✅ TEST MODE: Purchase successful! ${tokens} tokens would be granted (server bypassed)`)
-            console.log(`🧪 Product: ${purchase.productId}`)
-            console.log(`🧪 Transaction: ${purchase.transactionId}`)
-            console.log(`💰 Tokens: ${tokens}`)
-            // Don't call server at all for test products
-            return
-          }
+
 
           // For production: Try to grant tokens via server
           const userId = this.currentUserId || undefined
@@ -177,7 +165,7 @@ class PurchaseConfig {
       const productIds = getProductIds()
       console.log('🔍 Requesting products with IDs:', productIds)
       console.log('📱 Platform:', Platform.OS)
-      console.log('🧪 Test IAP Mode:', USE_TEST_IAP)
+
 
       try {
         this.products = await RNIap.getProducts({ skus: productIds })
@@ -256,32 +244,51 @@ class PurchaseConfig {
       })
 
       // Check if product exists before purchasing
-      const product = this.products.find(p => p.productId === productId)
-      if (!product) {
-        const error = new Error(`Product ${productId} not found. Available products: ${this.products.map(p => p.productId).join(', ') || 'none'}`)
-        console.error('❌ Purchase error:', error.message)
-        this.pendingPurchases.delete(productId)
-        clearTimeout(timeout)
-        reject(error)
-        return
+      let product = this.products.find(p => p.productId === productId)
+
+      const initiatePurchase = () => {
+        if (!product) {
+          const error = new Error(`Product ${productId} not found. Available products: ${this.products.map(p => p.productId).join(', ') || 'none'}`)
+          console.error('❌ Purchase error:', error.message)
+          this.pendingPurchases.delete(productId)
+          clearTimeout(timeout)
+          reject(error)
+          return
+        }
+
+        console.log(`🛒 Initiating purchase for: ${productId} (${product.title})`)
+
+        // Initiate purchase - react-native-iap v12 uses sku for both platforms
+        RNIap.requestPurchase({ sku: productId }).catch((error: any) => {
+          this.pendingPurchases.delete(productId)
+          clearTimeout(timeout)
+          console.error('❌ Purchase request error:', error)
+          console.error('❌ Product ID:', productId)
+          console.error('❌ Error code:', error.code)
+          console.error('❌ Error message:', error.message)
+          if (error.code === 'E_USER_CANCELLED' || error.code === 'E_USER_CANCELLED_PURCHASE') {
+            reject(new Error('Purchase cancelled by user'))
+          } else {
+            reject(error)
+          }
+        })
       }
 
-      console.log(`🛒 Initiating purchase for: ${productId} (${product.title})`)
-
-      // Initiate purchase - react-native-iap v12 uses sku for both platforms
-      RNIap.requestPurchase({ sku: productId }).catch((error: any) => {
-        this.pendingPurchases.delete(productId)
-        clearTimeout(timeout)
-        console.error('❌ Purchase request error:', error)
-        console.error('❌ Product ID:', productId)
-        console.error('❌ Error code:', error.code)
-        console.error('❌ Error message:', error.message)
-        if (error.code === 'E_USER_CANCELLED' || error.code === 'E_USER_CANCELLED_PURCHASE') {
-          reject(new Error('Purchase cancelled by user'))
-        } else {
-          reject(error)
-        }
-      })
+      // If product not found, try to fetch products again once
+      if (!product) {
+        console.log(`⚠️ Product ${productId} not found intially. Retrying fetch...`)
+        const productIds = getProductIds()
+        RNIap.getProducts({ skus: productIds }).then(freshProducts => {
+          this.products = freshProducts
+          product = this.products.find(p => p.productId === productId)
+          initiatePurchase()
+        }).catch(err => {
+          console.error('❌ Failed to refetch products:', err)
+          initiatePurchase() // Will fail but use standard error path
+        })
+      } else {
+        initiatePurchase()
+      }
     })
   }
 
@@ -296,13 +303,7 @@ class PurchaseConfig {
       // Grant tokens for restored purchases
       for (const purchase of purchases) {
         try {
-          // Skip server for test products
-          const isTestProduct = purchase.productId.startsWith('com.yourname.test.')
-          if (isTestProduct) {
-            const tokens = (PRODUCT_TOKEN_MAP as any)[purchase.productId] || 0
-            console.log(`✅ TEST MODE: Restored purchase - ${tokens} tokens (server bypassed)`)
-            continue
-          }
+
           await this.grantTokensForPurchase(purchase, this.currentUserId)
         } catch (error) {
           console.error('Failed to grant tokens during restore:', error)
@@ -354,8 +355,7 @@ class PurchaseConfig {
           return { ok: false }
         }
 
-        // Check if this is a test product
-        const isTestProduct = purchase.productId.startsWith('com.yourname.test.')
+
 
         // Quick timeout to avoid hanging
         const controller = new AbortController()
@@ -386,9 +386,7 @@ class PurchaseConfig {
             const result = await response.json()
             if (__DEV__) {
               console.log('✅ Purchase processed:', result)
-              if (isTestProduct && !userId) {
-                console.log(`🧪 Test purchase: ${tokens} tokens recorded. Use "Restore Purchases" after logging in to grant tokens.`)
-              } else if (result.granted > 0) {
+              if (result.granted > 0) {
                 console.log(`💰 ${result.granted} tokens granted to your account!`)
               }
             }
@@ -420,15 +418,7 @@ class PurchaseConfig {
 
     // Return success immediately so purchase flow continues
     const tokens = (PRODUCT_TOKEN_MAP as any)[purchase.productId] || 0
-    const isTestProduct = purchase.productId.startsWith('com.yourname.test.')
 
-    if (isTestProduct && !userId) {
-      return {
-        ok: true,
-        message: `Purchase completed! ${tokens} tokens recorded. Use "Restore Purchases" after logging in to grant tokens.`,
-        testMode: true
-      }
-    }
 
     return {
       ok: true,
