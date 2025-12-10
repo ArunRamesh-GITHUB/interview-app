@@ -377,6 +377,14 @@ class PurchaseConfig {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
 
+        // Debug: Log which receipt field is available
+        const receiptToken = (purchase as any).purchaseToken || (purchase as any).transactionReceipt || purchase.transactionId
+        if (__DEV__) {
+          console.log('📋 Receipt token type:', (purchase as any).purchaseToken ? 'purchaseToken (v14/StoreKit2)' :
+            (purchase as any).transactionReceipt ? 'transactionReceipt (legacy)' : 'transactionId (fallback)')
+          console.log('📋 Receipt length:', receiptToken?.length || 0)
+        }
+
         try {
           const response = await fetch(`${apiUrl}/api/iap/verify`, {
             method: 'POST',
@@ -391,7 +399,8 @@ class PurchaseConfig {
               transactionId: purchase.transactionId,
               platform: Platform.OS,
               userId: userId,
-              transactionReceipt: (purchase as any).transactionReceipt || purchase.transactionId,
+              // v14 uses purchaseToken (JWS for iOS StoreKit2) instead of transactionReceipt
+              transactionReceipt: (purchase as any).purchaseToken || (purchase as any).transactionReceipt || purchase.transactionId,
             }),
             signal: controller.signal,
           })
