@@ -162,17 +162,6 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
       return res.json({ ok: true, granted: 0, message: 'Transaction already processed' })
     }
 
-    // Derive affiliate slug if userId provided
-    let affiliate_slug = null
-    if (finalUserId) {
-      const { data: prof } = await sbAdmin
-        .from('profiles')
-        .select('referred_by')
-        .eq('id', finalUserId)
-        .maybeSingle()
-      affiliate_slug = prof?.referred_by || null
-    }
-
     // Insert purchase record
     const purchaseRow = {
       user_id: finalUserId || null,
@@ -182,8 +171,6 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
       tokens_granted: tokens,
       amount_cents: purchaseData.amountCents || null,
       currency: purchaseData.currency || null,
-      affiliate_slug,
-      commission_cents: 0,
       raw: { receipt: transactionReceipt, purchaseData }
     }
 
