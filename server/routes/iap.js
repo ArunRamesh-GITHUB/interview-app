@@ -162,16 +162,13 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
       return res.json({ ok: true, granted: 0, message: 'Transaction already processed' })
     }
 
-    // Insert purchase record
+    // Insert purchase record - minimal columns only
     const purchaseRow = {
       user_id: finalUserId || null,
       provider: platform === 'ios' ? 'apple' : 'google',
       provider_tx_id: transactionId,
       product_id: productId,
-      tokens_granted: tokens,
-      amount_cents: purchaseData.amountCents || null,
-      currency: purchaseData.currency || null,
-      raw: { receipt: transactionReceipt, purchaseData }
+      tokens_granted: tokens
     }
 
     const { error: insertError } = await sbAdmin.from('purchases').insert(purchaseRow)
