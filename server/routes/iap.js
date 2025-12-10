@@ -165,6 +165,7 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
     // Insert purchase record - minimal columns only
     const purchaseRow = {
       user_id: finalUserId || null,
+      platform: platform, // Required NOT NULL column
       provider: platform === 'ios' ? 'apple' : 'google',
       provider_tx_id: transactionId,
       product_id: productId,
