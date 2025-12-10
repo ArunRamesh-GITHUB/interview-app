@@ -162,21 +162,25 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
       return res.json({ ok: true, granted: 0, message: 'Transaction already processed' })
     }
 
-    // Insert purchase record - minimal columns only
+    // Insert purchase record - minimal columns only (non-blocking)
     const purchaseRow = {
       user_id: finalUserId || null,
-      platform: platform, // Required NOT NULL column
+      platform: platform,
       provider: platform === 'ios' ? 'apple' : 'google',
       provider_tx_id: transactionId,
       product_id: productId,
-      tokens_granted: tokens
+      tokens_granted: tokens,
+      transaction_key: transactionId // Some tables require this
     }
 
     const { error: insertError } = await sbAdmin.from('purchases').insert(purchaseRow)
 
-    if (insertError && !String(insertError.message).includes('duplicate')) {
-      console.error('Purchase insert error:', insertError)
-      return res.status(500).json({ error: 'Failed to record purchase' })
+    if (insertError) {
+      // Log but DON'T return - still grant tokens!
+      console.warn('⚠️ Purchase insert failed (non-blocking):', insertError.message)
+      console.warn('   Will still try to grant tokens...')
+    } else {
+      console.log('✅ Purchase recorded successfully')
     }
 
     // FOR TEST PRODUCTS: GRANT TOKENS NO MATTER WHAT - CREATE USER IF NEEDED
