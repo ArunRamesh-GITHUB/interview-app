@@ -215,7 +215,8 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
           p_user_id: finalUserId,
           p_amount: tokens,
           p_reason: `iap_${packKey}`,
-          p_metadata: { product_id: productId, transaction_id: transactionId, platform }
+          p_metadata: { product_id: productId, transaction_id: transactionId, platform },
+          p_transaction_id: transactionId
         })
 
         if (!grantError) {
@@ -234,7 +235,8 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
         p_user_id: finalUserId,
         p_amount: tokens,
         p_reason: `iap_${packKey}`,
-        p_metadata: { product_id: productId, transaction_id: transactionId, platform }
+        p_metadata: { product_id: productId, transaction_id: transactionId, platform },
+        p_transaction_id: transactionId
       })
 
       if (grantError) {
