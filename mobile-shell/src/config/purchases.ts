@@ -140,8 +140,17 @@ class PurchaseConfig {
 
       try {
         // v14: getProducts -> fetchProducts (and cast result to handle type mismatch)
-        const products = await RNIap.fetchProducts({ skus: productIds })
-        this.products = products as unknown as Product[]
+        const products = await RNIap.fetchProducts({ skus: productIds }) || []
+
+        if (!products) {
+          throw new Error('fetchProducts returned null')
+        }
+
+        // v14 FIX: Map 'id' to 'productId' if missing
+        this.products = products.map((p: any) => ({
+          ...p,
+          productId: p.productId || p.id // Ensure productId exists
+        })) as unknown as Product[]
       } catch (error: any) {
         console.error('❌ Failed to fetch products:', error)
         console.error('❌ Error details:', JSON.stringify(error, null, 2))
@@ -176,8 +185,18 @@ class PurchaseConfig {
 
     if (this.products.length === 0) {
       const productIds = getProductIds()
-      const products = await RNIap.fetchProducts({ skus: productIds })
-      this.products = products as unknown as Product[]
+      const products = await RNIap.fetchProducts({ skus: productIds }) || []
+
+      if (!products) {
+        this.products = []
+        return []
+      }
+
+      // v14 FIX: Map 'id' to 'productId' if missing
+      this.products = products.map((p: any) => ({
+        ...p,
+        productId: p.productId || p.id // Ensure productId exists
+      })) as unknown as Product[]
     }
 
     return this.products
@@ -215,6 +234,13 @@ class PurchaseConfig {
       // Check if product exists before purchasing
       let product = this.products.find(p => (p as any).productId === productId)
 
+      // Debugging v14 product structure
+      if (!product) {
+        console.log('⚠️ Debugging product lookup failure. Products available:',
+          this.products.map(p => JSON.stringify(p)).join('\n')
+        )
+      }
+
       const initiatePurchase = () => {
         if (!product) {
           const error = new Error(`Product ${productId} not found. Available products: ${this.products.map(p => (p as any).productId).join(', ') || 'none'}`)
@@ -227,8 +253,23 @@ class PurchaseConfig {
 
         console.log(`🛒 Initiating purchase for: ${productId} (${(product as any).title})`)
 
-        // Initiate purchase - cast to any to avoid strict type checking on 'sku'
-        RNIap.requestPurchase({ sku: productId } as any).catch((error: any) => {
+        // Initiate purchase - v14 requires nested structure with request.ios.sku
+        const purchaseParams = {
+          request: {
+            ios: {
+              sku: productId,
+              andDangerouslyFinishTransactionAutomatically: false,
+            },
+            android: {
+              skus: [productId],
+            }
+          },
+          type: 'in-app' as const,
+        }
+
+        console.log('🛒 Params:', JSON.stringify(purchaseParams))
+
+        RNIap.requestPurchase(purchaseParams as any).catch((error: any) => {
           this.pendingPurchases.delete(productId)
           clearTimeout(timeout)
           console.error('❌ Purchase request error:', error)
