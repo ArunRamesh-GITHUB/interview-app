@@ -253,23 +253,48 @@ class PurchaseConfig {
 
         console.log(`🛒 Initiating purchase for: ${productId} (${(product as any).title})`)
 
-        // Initiate purchase - v14 requires nested structure with request.ios.sku
-        const purchaseParams = {
-          request: {
-            ios: {
-              sku: productId,
-              andDangerouslyFinishTransactionAutomatically: false,
+        // Initiate purchase - v14 has different API for iOS vs Android
+        console.log('🛒 Initiating purchase on platform:', Platform.OS)
+
+        let purchasePromise: Promise<any>
+
+        if (Platform.OS === 'ios') {
+          // iOS v14: Uses nested request.ios.sku structure
+          const iosParams = {
+            request: {
+              ios: {
+                sku: productId,
+                andDangerouslyFinishTransactionAutomatically: false,
+              }
             },
-            android: {
-              skus: [productId],
-            }
-          },
-          type: 'in-app' as const,
+            type: 'in-app' as const,
+          }
+          console.log('🛒 iOS Params:', JSON.stringify(iosParams))
+          purchasePromise = RNIap.requestPurchase(iosParams as any)
+        } else {
+          // Android v14: Uses nested request.android structure
+          // Source: https://github.com/dooboolab-community/react-native-iap/blob/main/src/index.ts
+          const androidProduct = product as any
+
+          // Log the full product structure to debug
+          console.log('🔍 Android product structure:', JSON.stringify(androidProduct, null, 2))
+
+          // For Android consumables in v14, must use request.android.skus
+          const androidParams = {
+            request: {
+              android: {
+                skus: [productId],
+                obfuscatedAccountIdAndroid: this.currentUserId || undefined,
+              }
+            },
+            type: 'in-app' as const,
+          }
+
+          console.log('🛒 Android Params:', JSON.stringify(androidParams))
+          purchasePromise = RNIap.requestPurchase(androidParams as any)
         }
 
-        console.log('🛒 Params:', JSON.stringify(purchaseParams))
-
-        RNIap.requestPurchase(purchaseParams as any).catch((error: any) => {
+        purchasePromise.catch((error: any) => {
           this.pendingPurchases.delete(productId)
           clearTimeout(timeout)
           console.error('❌ Purchase request error:', error)
