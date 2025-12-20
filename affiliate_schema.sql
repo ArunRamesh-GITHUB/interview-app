@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS public.user_attribution (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   affiliate_slug VARCHAR(50) NOT NULL REFERENCES public.affiliates(slug) ON DELETE CASCADE,
   attributed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('deeplink', 'manual'))
+  source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('deeplink', 'manual', 'web_signup'))
 );
 
 -- Index for looking up users by affiliate
