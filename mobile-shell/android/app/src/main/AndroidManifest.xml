@@ -22,6 +22,19 @@
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATE_URL" android:value="https://u.expo.dev/76caca4c-3bb5-4ae1-85f3-15a4f6b7d6ce"/>
+    
+    <!-- Branch.io Configuration - TODO: Replace with your actual keys from Branch dashboard -->
+    <meta-data android:name="io.branch.sdk.BranchKey" android:value="BRANCH_LIVE_KEY_PLACEHOLDER"/>
+    <meta-data android:name="io.branch.sdk.BranchKey.test" android:value="BRANCH_TEST_KEY_PLACEHOLDER"/>
+    <meta-data android:name="io.branch.sdk.TestMode" android:value="false"/> <!-- Set to true for testing -->
+    
+    <!-- Branch.io Install Referrer for accurate attribution -->
+    <receiver android:name="io.branch.referral.InstallListener" android:exported="true">
+      <intent-filter>
+        <action android:name="com.android.vending.INSTALL_REFERRER"/>
+      </intent-filter>
+    </receiver>
+    
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
@@ -40,6 +53,14 @@
         <data android:scheme="exp+mobile-shell"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
+      </intent-filter>
+      <!-- Branch.io App Links - TODO: Replace YOURAPP with your Branch link domain -->
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="https" android:host="YOURAPP.app.link"/>
+        <data android:scheme="https" android:host="YOURAPP-alternate.app.link"/>
       </intent-filter>
     </activity>
   </application>

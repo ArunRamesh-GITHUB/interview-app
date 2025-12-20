@@ -1,5 +1,6 @@
 import express from 'express'
 import { TOKEN_PACKS } from '../../config/tokenPacks.js'
+import { createCommissionForPurchase } from './affiliateRoutes.js'
 
 /**
  * Verify IAP receipt and grant tokens
@@ -244,6 +245,18 @@ export async function verifyIAPReceipt(req, res, sbAdmin) {
         return res.status(500).json({ error: 'Failed to grant tokens', details: grantError.message })
       }
       console.log(`✅ Successfully granted ${tokens} tokens to user ${finalUserId}`)
+
+      // Create affiliate commission (non-blocking, idempotent)
+      // Estimate gross amount from token pack (would be better with actual price from receipt)
+      const estimatedPriceCents = { starter: 999, plus: 1999, pro: 3499, power: 5999 }[packKey] || 0
+      createCommissionForPurchase(sbAdmin, {
+        purchaseId: transactionId,
+        userId: finalUserId,
+        platform,
+        productId,
+        grossAmountCents: estimatedPriceCents
+      }).catch(err => console.warn('⚠️ Commission creation failed (non-blocking):', err.message))
+
       return res.json({
         ok: true,
         granted: tokens,

@@ -22,63 +22,71 @@ import Settings from './pages/Settings'
 import Account from './pages/Account'
 import PaidPlans from './pages/PaidPlans'
 import Affiliates from './pages/Affiliates'
+import AffiliatesAdmin from './pages/AffiliatesAdmin'
 import Tutoring from './pages/Tutoring'
+import ReferralLanding from './pages/ReferralLanding'
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: <AppShell />,
     children: [
-      { 
-        index: true, 
-        element: <ProtectedRoute><Home /></ProtectedRoute> 
+      {
+        index: true,
+        element: <ProtectedRoute><Home /></ProtectedRoute>
       },
-      { 
-        path: 'live', 
-        element: <ProtectedRoute><LiveInterview /></ProtectedRoute> 
+      {
+        path: 'live',
+        element: <ProtectedRoute><LiveInterview /></ProtectedRoute>
       },
-      { 
-        path: 'realtime', 
-        element: <ProtectedRoute><RealtimeInterview /></ProtectedRoute> 
+      {
+        path: 'realtime',
+        element: <ProtectedRoute><RealtimeInterview /></ProtectedRoute>
       },
-      { 
-        path: 'drill', 
-        element: <ProtectedRoute><Drill /></ProtectedRoute> 
+      {
+        path: 'drill',
+        element: <ProtectedRoute><Drill /></ProtectedRoute>
       },
-      { 
-        path: 'cv', 
-        element: <ProtectedRoute><CVUpload /></ProtectedRoute> 
+      {
+        path: 'cv',
+        element: <ProtectedRoute><CVUpload /></ProtectedRoute>
       },
-      { 
-        path: 'answers', 
-        element: <ProtectedRoute><MyAnswers /></ProtectedRoute> 
+      {
+        path: 'answers',
+        element: <ProtectedRoute><MyAnswers /></ProtectedRoute>
       },
-      { 
-        path: 'resources', 
+      {
+        path: 'resources',
         element: <Navigate to="/account#resources" replace />
       },
-      { 
-        path: 'settings', 
-        element: <ProtectedRoute><Settings /></ProtectedRoute> 
+      {
+        path: 'settings',
+        element: <ProtectedRoute><Settings /></ProtectedRoute>
       },
-      { 
-        path: 'plans', 
-        element: <ProtectedRoute><PaidPlans /></ProtectedRoute> 
+      {
+        path: 'plans',
+        element: <ProtectedRoute><PaidPlans /></ProtectedRoute>
       },
-      { 
-        path: 'affiliates', 
-        element: <ProtectedRoute><Affiliates /></ProtectedRoute> 
+      {
+        path: 'affiliates',
+        element: <ProtectedRoute><Affiliates /></ProtectedRoute>
       },
-      { 
-        path: 'tutoring', 
-        element: <ProtectedRoute><Tutoring /></ProtectedRoute> 
+      {
+        path: 'affiliates/admin',
+        element: <ProtectedRoute><AffiliatesAdmin /></ProtectedRoute>
       },
-      { 
-        path: 'community', 
+      {
+        path: 'tutoring',
+        element: <ProtectedRoute><Tutoring /></ProtectedRoute>
+      },
+      {
+        path: 'community',
         element: <Navigate to="/tutoring" replace />
       },
       // Account page is NOT protected - users need access to login
       { path: 'account', element: <Account /> },
+      // Referral landing page - NOT protected, captures affiliate_slug from URL
+      { path: 'r/:slug', element: <ReferralLanding /> },
     ],
   },
 ])
