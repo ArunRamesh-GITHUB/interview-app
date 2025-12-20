@@ -9,6 +9,9 @@ import { RefreshCw, Plus, Eye, Ban, Check, Pause } from 'lucide-react'
 const API_BASE = import.meta.env.VITE_API_URL || ''
 const INTERNAL_KEY = import.meta.env.VITE_INTERNAL_KEY || ''
 
+// Only these emails can access the admin panel
+const ADMIN_EMAILS = ['ramesharun410@gmail.com']
+
 interface Affiliate {
     slug: string
     display_name: string
@@ -59,11 +62,29 @@ export default function AffiliatesAdmin() {
     const [newSlug, setNewSlug] = useState('')
     const [newDisplayName, setNewDisplayName] = useState('')
     const [newPaypalEmail, setNewPaypalEmail] = useState('')
+    const [userEmail, setUserEmail] = useState<string | null>(null)
+    const [authChecking, setAuthChecking] = useState(true)
 
     useEffect(() => {
-        fetchAffiliates()
-        fetchCommissions()
+        checkAdminAccess()
     }, [])
+
+    async function checkAdminAccess() {
+        try {
+            const res = await fetch(`${API_BASE}/api/me`, { credentials: 'include' })
+            const data = await res.json()
+            const email = data?.user?.email?.toLowerCase()
+            setUserEmail(email)
+            if (email && ADMIN_EMAILS.includes(email)) {
+                fetchAffiliates()
+                fetchCommissions()
+            }
+        } catch (e) {
+            console.error('Auth check failed:', e)
+        } finally {
+            setAuthChecking(false)
+        }
+    }
 
     const headers = {
         'Content-Type': 'application/json',
@@ -156,6 +177,27 @@ export default function AffiliatesAdmin() {
         }
     }
 
+    if (authChecking) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <RefreshCw className="animate-spin" size={32} />
+            </div>
+        )
+    }
+
+    if (!userEmail || !ADMIN_EMAILS.includes(userEmail)) {
+        return (
+            <Card>
+                <CardContent className="text-center py-8">
+                    <p className="text-error mb-4">Access Denied</p>
+                    <p className="text-sm text-text-secondary">
+                        You don't have permission to access this page.
+                    </p>
+                </CardContent>
+            </Card>
+        )
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -236,6 +278,7 @@ export default function AffiliatesAdmin() {
                                 <tr className="border-b text-left">
                                     <th className="pb-2">Slug</th>
                                     <th className="pb-2">Name</th>
+                                    <th className="pb-2">PayPal</th>
                                     <th className="pb-2">Status</th>
                                     <th className="pb-2">Rate</th>
                                     <th className="pb-2">Created</th>
@@ -247,6 +290,7 @@ export default function AffiliatesAdmin() {
                                     <tr key={aff.slug} className="border-b">
                                         <td className="py-2 font-mono">{aff.slug}</td>
                                         <td className="py-2">{aff.display_name}</td>
+                                        <td className="py-2 text-xs">{aff.paypal_email || '-'}</td>
                                         <td className="py-2"><StatusBadge status={aff.status} /></td>
                                         <td className="py-2">{aff.commission_rate_bps / 100}%</td>
                                         <td className="py-2">{new Date(aff.created_at).toLocaleDateString()}</td>

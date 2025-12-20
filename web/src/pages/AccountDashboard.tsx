@@ -117,9 +117,9 @@ export default function AccountDashboard() {
         <CardContent className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">Voice</label>
-            <select 
+            <select
               value={preferences.voice}
-              onChange={(e) => setPreferences({...preferences, voice: e.target.value})}
+              onChange={(e) => setPreferences({ ...preferences, voice: e.target.value })}
               className="w-full rounded-lg border border-border px-3 py-2 bg-card"
             >
               <option value="alloy">Alloy</option>
@@ -137,7 +137,7 @@ export default function AccountDashboard() {
               min="60"
               max="300"
               value={preferences.timeLimit}
-              onChange={(e) => setPreferences({...preferences, timeLimit: parseInt(e.target.value)})}
+              onChange={(e) => setPreferences({ ...preferences, timeLimit: parseInt(e.target.value) })}
               className="w-full"
             />
             <div className="text-sm text-text-secondary">{preferences.timeLimit} seconds</div>
@@ -146,7 +146,7 @@ export default function AccountDashboard() {
             <label className="block text-sm font-medium mb-2">Scoring Strictness</label>
             <select
               value={preferences.strictness}
-              onChange={(e) => setPreferences({...preferences, strictness: e.target.value})}
+              onChange={(e) => setPreferences({ ...preferences, strictness: e.target.value })}
               className="w-full rounded-lg border border-border px-3 py-2 bg-card"
             >
               <option value="lenient">Lenient</option>
@@ -211,7 +211,7 @@ export default function AccountDashboard() {
           </div>
         </CardContent>
       </Card>
-      
+
       {/* Anchor for Resources */}
       <div className="text-center">
         <a href="#resources" className="text-sm text-primary hover:underline">
