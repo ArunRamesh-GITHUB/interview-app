@@ -37,32 +37,6 @@
 				<string>exp+mobile-shell</string>
 			</array>
 		</dict>
-		<!-- Branch.io Deep Linking URL Scheme -->
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<!-- TODO: Replace with your Branch URI scheme from dashboard -->
-				<string>BRANCH_URI_SCHEME_PLACEHOLDER</string>
-			</array>
-		</dict>
-	</array>
-	<!-- Branch.io Configuration -->
-	<key>branch_key</key>
-	<dict>
-		<!-- TODO: Replace with your actual Branch keys from dashboard -->
-		<key>live</key>
-		<string>BRANCH_LIVE_KEY_PLACEHOLDER</string>
-		<key>test</key>
-		<string>BRANCH_TEST_KEY_PLACEHOLDER</string>
-	</dict>
-	<!-- Branch.io Universal Links Domain -->
-	<key>branch_universal_link_domains</key>
-	<array>
-		<!-- TODO: Replace with your Branch link domain from dashboard -->
-		<string>YOURAPP.app.link</string>
-		<string>YOURAPP-alternate.app.link</string>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>3</string>
