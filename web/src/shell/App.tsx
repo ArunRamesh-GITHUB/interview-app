@@ -5,13 +5,15 @@ import { useAuth } from '../lib/auth'
 import { MobileNav } from '../components/nav/MobileNav'
 import { Logo } from '../components/ui/logo'
 import { TokenBalance } from '../components/ui/TokenBalance'
-import { NAV_LINKS } from '../lib/nav'
+import { getNavLinks, isMobileApp } from '../lib/nav'
 
 
 function Header() {
   const { user, logout } = useAuth()
   const location = useLocation()
   const isAccountPage = location.pathname === '/account'
+  const inMobileApp = isMobileApp() // Check if running in mobile WebView
+  const navLinks = getNavLinks() // Get filtered nav links
 
   const handleLogout = async () => {
     await logout()
@@ -22,24 +24,27 @@ function Header() {
     <header className="bg-card border-b border-divider w-full pt-safe">
       <div className="mx-auto max-w-screen-xl md:max-w-5xl px-3 sm:px-4 flex items-center justify-between lg:justify-start py-2 sm:py-3 min-w-0 gap-2 sm:gap-4 lg:gap-6">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 max-w-[50%] sm:max-w-none lg:flex-initial">
-          <MobileNav links={NAV_LINKS} />
+          <MobileNav links={navLinks} />
           <Logo size="md" className="lg:hidden" />
         </div>
         <nav className="hidden lg:flex items-center justify-between flex-1 mx-4 xl:mx-6">
           {user ? (
             <>
               <div className="flex items-center gap-2 xl:gap-3">
-                <NavLink to="/" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Home</NavLink>
-                <NavLink to="/live" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Live Interview</NavLink>
-                <NavLink to="/realtime" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Realtime AI</NavLink>
-                <NavLink to="/drill" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Drill</NavLink>
-                <NavLink to="/cv" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>CV Upload</NavLink>
+                <NavLink to="/" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Home</NavLink>
+                <NavLink to="/live" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Live Interview</NavLink>
+                <NavLink to="/realtime" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Realtime AI</NavLink>
+                <NavLink to="/drill" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Drill</NavLink>
+                <NavLink to="/cv" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>CV Upload</NavLink>
               </div>
               <div className="flex items-center gap-2 xl:gap-3">
-                <NavLink to="/answers" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>My Answers</NavLink>
-                <NavLink to="/tutoring" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Tutoring</NavLink>
-                <NavLink to="/affiliates" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Affiliates</NavLink>
-                <NavLink to="/account" className={({isActive}) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Account</NavLink>
+                <NavLink to="/answers" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>My Answers</NavLink>
+                <NavLink to="/tutoring" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Tutoring</NavLink>
+                {/* Hide Affiliates link when in mobile app */}
+                {!inMobileApp && (
+                  <NavLink to="/affiliates" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Affiliates</NavLink>
+                )}
+                <NavLink to="/account" className={({ isActive }) => `px-3 py-2 xl:px-4 xl:py-2 rounded-lg text-sm xl:text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-primary text-primary-on' : 'hover:bg-surface-alt text-text-primary'}`}>Account</NavLink>
               </div>
             </>
           ) : (
@@ -49,14 +54,14 @@ function Header() {
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 lg:ml-auto">
           {user && (
             <>
-              <TokenBalance 
-                variant="compact" 
+              <TokenBalance
+                variant="compact"
                 clickable
                 onClick={() => window.location.href = '/plans'}
                 className="hidden sm:flex mr-1"
               />
-              <TokenBalance 
-                variant="compact" 
+              <TokenBalance
+                variant="compact"
                 showLabel={false}
                 clickable
                 onClick={() => window.location.href = '/plans'}
@@ -90,8 +95,8 @@ function Header() {
 export default function AppShell() {
   const location = useLocation()
   const { user } = useAuth()
-  
-  
+
+
   // IMPORTANT: no BrowserRouter here. This is just a layout.
   return (
     <div>
