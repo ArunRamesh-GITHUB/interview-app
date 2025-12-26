@@ -115,7 +115,10 @@ export default function ReferralLanding() {
 
                             {/* Terms */}
                             <p className="text-white/40 text-xs text-center">
-                                By signing up, you agree to our Terms of Service and Privacy Policy.
+                                By signing up, you agree to our{' '}
+                                <a href="https://sites.google.com/view/clientsite/terms-of-use" target="_blank" rel="noopener noreferrer" className="text-orange-400 underline hover:text-orange-300">Terms of Use</a>{' '}
+                                and{' '}
+                                <a href="https://sites.google.com/view/clientsite/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-orange-400 underline hover:text-orange-300">Privacy Policy</a>.
                             </p>
                         </>
                     ) : (

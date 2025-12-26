@@ -103,7 +103,7 @@ export default function PaidPlans() {
       console.log('🛒 Purchase request - Product:', p.identifier)
       console.log('👤 User state:', user ? `Logged in - ID: ${user.id}, Email: ${user.email}` : 'NOT LOGGED IN')
       console.log('📤 Sending userId to mobile:', userIdToSend || 'null')
-      
+
       const success = requestNativePurchase(p.identifier, userIdToSend)
       if (success) {
         console.log('✅ Requested native purchase for:', p.identifier, 'User ID:', userIdToSend || 'none')
@@ -142,7 +142,7 @@ export default function PaidPlans() {
             No token packs available. Please check your RevenueCat configuration.
           </div>
         )}
-        {products.map((p:any) => (
+        {products.map((p: any) => (
           <div key={p.identifier} className="rounded-2xl border p-6 shadow-sm flex flex-col">
             <div className="text-xl font-semibold capitalize">{p.storeProduct?.title || p.identifier}</div>
             <div className="text-3xl font-bold mt-2">{p.storeProduct?.priceString || '—'}</div>
@@ -166,6 +166,28 @@ export default function PaidPlans() {
         <div className="mt-4 text-sm text-gray-500">
           Web purchases are processed by Stripe via RevenueCat. Tokens arrive instantly.
         </div>
+      </div>
+
+      {/* Terms and Privacy Policy */}
+      <div className="mt-6 text-center text-sm text-gray-500">
+        By purchasing, you agree to our{' '}
+        <a
+          href="https://sites.google.com/view/clientsite/terms-of-use"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:text-primary/80"
+        >
+          Terms of Use
+        </a>{' '}
+        and{' '}
+        <a
+          href="https://sites.google.com/view/clientsite/privacy-policy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:text-primary/80"
+        >
+          Privacy Policy
+        </a>
       </div>
     </div>
   )

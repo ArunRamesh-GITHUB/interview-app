@@ -654,12 +654,35 @@ app.get('/api/account/export', authRequired, async (req, res) => {
   }
 })
 
-app.post('/api/account/delete', authRequired, (req, res) => {
-  // Placeholder for account deletion - returns 501 Not Implemented
-  res.status(501).json({
-    error: 'Account deletion not yet implemented',
-    message: 'This feature will be available in a future update'
-  })
+app.delete('/api/account/delete', authRequired, async (req, res) => {
+  try {
+    const userId = req.session?.userId
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' })
+    }
+
+    console.log(`🗑️ Account deletion requested for user: ${userId}`)
+
+    // Delete user from Supabase Auth (this also cascades to delete related data if configured)
+    const { error: deleteError } = await sbAdmin.auth.admin.deleteUser(userId)
+
+    if (deleteError) {
+      console.error('Failed to delete user:', deleteError)
+      return res.status(500).json({ error: 'Failed to delete account' })
+    }
+
+    console.log(`✅ User ${userId} deleted successfully`)
+
+    // Clear the session
+    req.session.destroy((err) => {
+      if (err) console.error('Session destroy error:', err)
+    })
+
+    res.json({ success: true, message: 'Account deleted successfully' })
+  } catch (error) {
+    console.error('Account deletion error:', error)
+    res.status(500).json({ error: 'Failed to delete account' })
+  }
 })
 
 // ---------- AUTH ALIASES (for legacy public interface compatibility) ----------

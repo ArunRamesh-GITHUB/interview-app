@@ -16,7 +16,7 @@ export default function Account() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login, user } = useAuth()
-  
+
   // Get the return URL from navigation state
   const from = location.state?.from?.pathname || '/'
 
@@ -78,18 +78,16 @@ export default function Account() {
           {/* Toggle */}
           <div className="flex bg-white/10 rounded-full p-1">
             <button
-              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-                mode === 'signin' ? 'bg-orange-500 text-white shadow-lg' : 'text-white/70 hover:text-white'
-              }`}
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${mode === 'signin' ? 'bg-orange-500 text-white shadow-lg' : 'text-white/70 hover:text-white'
+                }`}
               onClick={() => setMode('signin')}
               type="button"
             >
               Sign in
             </button>
             <button
-              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-                mode === 'register' ? 'bg-orange-500 text-white shadow-lg' : 'text-white/70 hover:text-white'
-              }`}
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-200 ${mode === 'register' ? 'bg-orange-500 text-white shadow-lg' : 'text-white/70 hover:text-white'
+                }`}
               onClick={() => setMode('register')}
               type="button"
             >
@@ -130,9 +128,9 @@ export default function Account() {
                   required
                 />
               </div>
-              <button 
-                disabled={loading} 
-                type="submit" 
+              <button
+                disabled={loading}
+                type="submit"
                 className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-200 shadow-lg"
               >
                 {loading ? 'Signing in…' : 'Sign in'}
@@ -160,13 +158,19 @@ export default function Account() {
                   required
                 />
               </div>
-              <button 
-                disabled={loading} 
-                type="submit" 
+              <button
+                disabled={loading}
+                type="submit"
                 className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-500/50 text-white font-semibold py-4 px-4 rounded-xl transition-all duration-200 shadow-lg"
               >
                 {loading ? 'Creating account…' : 'Create account'}
               </button>
+              <p className="text-white/40 text-xs text-center">
+                By signing up, you agree to our{' '}
+                <a href="https://sites.google.com/view/clientsite/terms-of-use" target="_blank" rel="noopener noreferrer" className="text-orange-400 underline hover:text-orange-300">Terms of Use</a>{' '}
+                and{' '}
+                <a href="https://sites.google.com/view/clientsite/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-orange-400 underline hover:text-orange-300">Privacy Policy</a>.
+              </p>
             </form>
           )}
 

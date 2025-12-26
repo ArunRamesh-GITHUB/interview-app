@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { StatPill } from '../components/ui/stat-pill'
-import { User, Shield, Download, Trash2, Settings, CreditCard, BookOpen } from 'lucide-react'
+import { User, Shield, Download, Trash2, Settings, CreditCard, BookOpen, AlertTriangle } from 'lucide-react'
 
 export default function AccountDashboard() {
   const { user, logout } = useAuth()
@@ -14,6 +14,9 @@ export default function AccountDashboard() {
     timeLimit: 120,
     strictness: 'medium'
   })
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false)
+  const [deleteLoading, setDeleteLoading] = React.useState(false)
+  const [deleteError, setDeleteError] = React.useState('')
 
   React.useEffect(() => {
     fetch('/api/me', { credentials: 'include' })
@@ -37,8 +40,75 @@ export default function AccountDashboard() {
     }
   }
 
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true)
+    setDeleteError('')
+    try {
+      const response = await fetch('/api/account/delete', {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete account')
+      }
+      // Logout and redirect after successful deletion
+      await logout()
+      window.location.href = '/account'
+    } catch (error: any) {
+      setDeleteError(error.message || 'Failed to delete account')
+      setDeleteLoading(false)
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 py-6">
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full bg-card border-red-500/30">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center gap-3 text-red-500">
+                <AlertTriangle className="w-8 h-8" />
+                <h3 className="text-xl font-bold">Delete Account?</h3>
+              </div>
+              <p className="text-text-secondary">
+                This action is <strong>permanent and cannot be undone</strong>. All your data, including:
+              </p>
+              <ul className="list-disc ml-5 text-sm text-text-secondary space-y-1">
+                <li>Interview responses and scores</li>
+                <li>Token balance</li>
+                <li>Account settings</li>
+              </ul>
+              <p className="text-red-400 text-sm font-medium">
+                Will be permanently deleted.
+              </p>
+              {deleteError && (
+                <p className="text-red-500 text-sm bg-red-500/10 p-2 rounded">{deleteError}</p>
+              )}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1"
+                  disabled={deleteLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                  disabled={deleteLoading}
+                >
+                  {deleteLoading ? 'Deleting...' : 'Delete Forever'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* User Card */}
       <Card>
         <CardContent className="pt-6">
@@ -49,9 +119,14 @@ export default function AccountDashboard() {
             <div className="flex-1 min-w-0">
               <h2 className="text-lg sm:text-xl font-semibold tracking-normal truncate">{user?.email}</h2>
             </div>
-            <Button variant="outline" size="sm" className="flex-shrink-0">
-              <Settings className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Edit profile</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-shrink-0 text-red-500 border-red-500/30 hover:bg-red-500/10"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Delete account</span>
             </Button>
           </div>
         </CardContent>
@@ -185,9 +260,13 @@ export default function AccountDashboard() {
             <Download className="w-4 h-4 mr-2" />
             Export my data
           </Button>
-          <Button variant="outline" disabled className="w-full justify-start text-text-secondary">
+          <Button
+            variant="outline"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="w-full justify-start text-red-500 border-red-500/30 hover:bg-red-500/10"
+          >
             <Trash2 className="w-4 h-4 mr-2" />
-            Delete account (Coming soon)
+            Delete account
           </Button>
         </CardContent>
       </Card>
