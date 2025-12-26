@@ -64,7 +64,7 @@ function TutorCard({ tutor }: { tutor: Tutor }) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-text-primary mb-2">{tutor.display_name}</h3>
-            
+
             <div className="flex flex-wrap gap-1 mb-2">
               {displayedSubjects.map((subject, index) => (
                 <Badge key={index} variant="secondary">
@@ -75,21 +75,21 @@ function TutorCard({ tutor }: { tutor: Tutor }) {
                 <Badge variant="outline">+{extraCount}</Badge>
               )}
             </div>
-            
+
             <div className="text-2xl font-bold text-primary mb-2">
               {poundsFromCents(tutor.hourly_rate_cents)}/hr
             </div>
-            
+
             {tutor.bio && (
               <p className="text-sm text-text-secondary line-clamp-2 mb-4">
                 {tutor.bio}
               </p>
             )}
-            
+
             <div className="flex gap-2">
               {tutor.stripe_payment_link_url && (
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="yellow"
                   onClick={() => {
                     analytics.tutorBookClicked(tutor.id)
@@ -100,9 +100,9 @@ function TutorCard({ tutor }: { tutor: Tutor }) {
                 </Button>
               )}
               {tutor.calendly_url && (
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
+                <Button
+                  size="sm"
+                  variant="ghost"
                   onClick={() => {
                     analytics.tutorScheduleClicked(tutor.id)
                     window.open(tutor.calendly_url, '_blank')
@@ -130,25 +130,25 @@ function ResourceCard({ resource }: { resource: Resource }) {
             <Lock size={16} className="text-text-secondary flex-shrink-0" />
           )}
         </div>
-        
+
         <Badge variant="secondary" className="mb-2">
           {resource.category}
         </Badge>
-        
+
         {resource.description && (
           <p className="text-sm text-text-secondary line-clamp-1 mb-4">
             {resource.description}
           </p>
         )}
-        
-        <Button 
-          size="sm" 
-          variant="secondary" 
+
+        <Button
+          size="sm"
+          variant="outline"
           onClick={() => {
             analytics.resourceOpened(resource.id, resource.title)
             window.open(resource.url, '_blank')
           }}
-          className="w-full"
+          className="w-full text-text-primary"
         >
           <ExternalLink size={16} className="mr-1" />
           Open
@@ -174,30 +174,30 @@ function TutorsTab() {
   async function fetchTutors() {
     try {
       setLoading(page === 1)
-      
+
       if (USE_MOCKS) {
         await new Promise(resolve => setTimeout(resolve, 800))
         let filteredTutors = [...MOCK_TUTORS]
-        
+
         if (searchTerm) {
-          filteredTutors = filteredTutors.filter(t => 
+          filteredTutors = filteredTutors.filter(t =>
             t.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             t.subjects.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
           )
         }
-        
+
         if (selectedSubject) {
-          filteredTutors = filteredTutors.filter(t => 
+          filteredTutors = filteredTutors.filter(t =>
             t.subjects.some(s => s.toLowerCase().includes(selectedSubject.toLowerCase()))
           )
         }
-        
+
         if (sortBy === 'price_asc') {
           filteredTutors.sort((a, b) => a.hourly_rate_cents - b.hourly_rate_cents)
         } else if (sortBy === 'price_desc') {
           filteredTutors.sort((a, b) => b.hourly_rate_cents - a.hourly_rate_cents)
         }
-        
+
         setTutors(page === 1 ? filteredTutors : [...tutors, ...filteredTutors])
         setHasMore(false) // No pagination in mocks
       } else {
@@ -209,13 +209,13 @@ function TutorsTab() {
           page: page.toString(),
           pageSize: '12'
         })
-        
+
         const response = await fetch(`${API_BASE}/api/tutors/public?${params}`, {
           credentials: 'include'
         })
-        
+
         if (!response.ok) throw new Error('Failed to fetch tutors')
-        
+
         const data = await response.json()
         setTutors(page === 1 ? data.items : [...tutors, ...data.items])
         setHasMore(data.items.length === 12)
@@ -264,8 +264,8 @@ function TutorsTab() {
             <div className="flex-1">
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
-                <Input 
-                  placeholder="Search tutors or topics" 
+                <Input
+                  placeholder="Search tutors or topics"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -273,8 +273,8 @@ function TutorsTab() {
               </div>
             </div>
             <div className="flex gap-2">
-              <select 
-                value={selectedSubject} 
+              <select
+                value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
                 className="px-3 py-2 rounded-lg border border-divider bg-card text-text-primary text-sm"
               >
@@ -283,8 +283,8 @@ function TutorsTab() {
                   <option key={subject} value={subject}>{subject}</option>
                 ))}
               </select>
-              <select 
-                value={sortBy} 
+              <select
+                value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="px-3 py-2 rounded-lg border border-divider bg-card text-text-primary text-sm"
               >
@@ -350,7 +350,7 @@ function TutorsTab() {
                 <TutorCard key={tutor.id} tutor={tutor} />
               ))}
             </div>
-            
+
             {hasMore && (
               <div className="text-center mt-8">
                 <Button onClick={loadMore} variant="secondary">
@@ -379,18 +379,18 @@ function ResourcesTab() {
 
   useEffect(() => {
     let filtered = resources
-    
+
     if (selectedCategory && selectedCategory !== 'All') {
       filtered = filtered.filter(r => r.category === selectedCategory)
     }
-    
+
     if (searchTerm) {
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (r.description && r.description.toLowerCase().includes(searchTerm.toLowerCase()))
       )
     }
-    
+
     setFilteredResources(filtered)
   }, [resources, searchTerm, selectedCategory])
 
@@ -411,11 +411,10 @@ function ResourcesTab() {
           <button
             key={category}
             onClick={() => setSelectedCategory(category === 'All' ? '' : category)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              (selectedCategory === category || (selectedCategory === '' && category === 'All'))
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${(selectedCategory === category || (selectedCategory === '' && category === 'All'))
                 ? 'bg-primary text-primary-on'
                 : 'bg-surface-alt text-text-secondary hover:bg-surface hover:text-text-primary'
-            }`}
+              }`}
           >
             {category}
           </button>
@@ -426,8 +425,8 @@ function ResourcesTab() {
       <div className="max-w-md mx-auto">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
-          <Input 
-            placeholder="Search titles" 
+          <Input
+            placeholder="Search titles"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -472,11 +471,11 @@ export default function Tutoring() {
             <TabsTrigger value="resources">Resources</TabsTrigger>
           </TabsList>
         </div>
-        
+
         <TabsContent value="tutors">
           <TutorsTab />
         </TabsContent>
-        
+
         <TabsContent value="resources">
           <ResourcesTab />
         </TabsContent>
