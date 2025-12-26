@@ -21,7 +21,7 @@ html, body, #root { height: 100%; }
 
 /* Utilities for safe padding (used where needed) */
 .pb-safe { padding-bottom: max(var(--safe-bottom), 0.75rem); }
-.pt-safe { padding-top: max(var(--safe-top), 0.5rem); }
+.pt-safe { padding-top: max(var(--safe-top), 1.75rem); } /* 1.75rem ensures Android status bar clearance */
 
 /* Kill accidental horizontal scroll */
 html, body { overflow-x: hidden; }
